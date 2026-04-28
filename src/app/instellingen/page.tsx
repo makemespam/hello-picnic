@@ -2,47 +2,73 @@
 
 import { useEffect, useState } from 'react';
 import type { AppSettings } from '@/lib/types';
-import { DEFAULT_PANTRY, DEFAULT_PANTRY_KEYS } from '@/data/pantry';
+import { DEFAULT_PANTRY } from '@/data/pantry';
+import { defaultSettings, normalizeSettings } from '@/lib/settings';
+import {
+  DEFAULT_MEAL_COUNT,
+  DEFAULT_SERVINGS,
+  LLM_PROVIDERS,
+  getDefaultModel,
+  getProviderConfig,
+  type LlmProvider,
+} from '@/lib/llm';
 
-const MODELS = [
-  { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 — snel & goedkoop' },
-  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 — aanbevolen ✨' },
-  { id: 'claude-opus-4-7', label: 'Claude Opus 4.7 — slimst' },
-];
-
-function loadSettings(): AppSettings {
-  try {
-    const raw = localStorage.getItem('helloPicknicSettings');
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-  return {
-    anthropicApiKey: '',
-    model: 'claude-sonnet-4-6',
-    picnicAuthToken: '',
-    picnicEmail: '',
-    pantryItems: DEFAULT_PANTRY_KEYS,
-  };
-}
+type ConfigStatus = {
+  llmApiKeys: Partial<Record<LlmProvider, boolean>>;
+  picnicCredentials: boolean;
+};
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<AppSettings>({
-    anthropicApiKey: '',
-    model: 'claude-sonnet-4-6',
-    picnicAuthToken: '',
-    picnicEmail: '',
-    pantryItems: DEFAULT_PANTRY_KEYS,
-  });
-  const [picnicPassword, setPicnicPassword] = useState('');
+  const [settings, setSettings] = useState<AppSettings>(defaultSettings());
   const [loginStatus, setLoginStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle');
   const [loginError, setLoginError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [configStatus, setConfigStatus] = useState<ConfigStatus | null>(null);
 
   useEffect(() => {
-    setSettings(loadSettings());
+    loadPersistedSettings();
+    fetchConfigStatus();
   }, []);
 
-  function save() {
-    localStorage.setItem('helloPicknicSettings', JSON.stringify(settings));
+  async function loadPersistedSettings() {
+    let localSettings: Partial<AppSettings> | null = null;
+    try {
+      const raw = localStorage.getItem('helloPicknicSettings');
+      localSettings = raw ? JSON.parse(raw) : null;
+    } catch {
+      localSettings = null;
+    }
+
+    try {
+      const res = await fetch('/api/settings');
+      const data = await res.json();
+      const merged = normalizeSettings(data.exists ? { ...localSettings, ...data.settings } : localSettings);
+      setSettings(merged);
+      localStorage.setItem('helloPicknicSettings', JSON.stringify(merged));
+    } catch {
+      setSettings(normalizeSettings(localSettings));
+    }
+  }
+
+  async function fetchConfigStatus() {
+    try {
+      const res = await fetch('/api/config/status');
+      const data = await res.json();
+      setConfigStatus(data);
+    } catch {
+      setConfigStatus(null);
+    }
+  }
+
+  async function save() {
+    const normalized = normalizeSettings(settings);
+    localStorage.setItem('helloPicknicSettings', JSON.stringify(normalized));
+    setSettings(normalized);
+    await fetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(normalized),
+    });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
@@ -53,11 +79,18 @@ export default function SettingsPage() {
     const res = await fetch('/api/picnic/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: settings.picnicEmail, password: picnicPassword }),
+      body: JSON.stringify({ email: settings.picnicEmail, password: settings.picnicPassword }),
     });
     const data = await res.json();
     if (res.ok && data.authToken) {
-      setSettings((prev) => ({ ...prev, picnicAuthToken: data.authToken }));
+      const nextSettings = { ...settings, picnicAuthToken: data.authToken };
+      setSettings(nextSettings);
+      localStorage.setItem('helloPicknicSettings', JSON.stringify(nextSettings));
+      await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextSettings),
+      });
       setLoginStatus('ok');
     } else {
       setLoginStatus('error');
@@ -74,6 +107,36 @@ export default function SettingsPage() {
     }));
   }
 
+  function setProvider(provider: LlmProvider) {
+    setSettings((prev) => {
+      const model = prev.modelsByProvider[provider] ?? getDefaultModel(provider);
+      return {
+        ...prev,
+        llmProvider: provider,
+        model,
+        modelsByProvider: {
+          ...prev.modelsByProvider,
+          [provider]: model,
+        },
+      };
+    });
+  }
+
+  function setModel(model: string) {
+    setSettings((prev) => ({
+      ...prev,
+      model,
+      modelsByProvider: {
+        ...prev.modelsByProvider,
+        [prev.llmProvider]: model,
+      },
+    }));
+  }
+
+  const activeProvider = getProviderConfig(settings.llmProvider);
+  const hasServerApiKey = Boolean(configStatus?.llmApiKeys?.[activeProvider.id]);
+  const hasPicnicEnvCredentials = Boolean(configStatus?.picnicCredentials);
+
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       <div>
@@ -81,24 +144,58 @@ export default function SettingsPage() {
         <p className="mt-1 text-stone-500">API-sleutels, Picnic-account en je kastinventaris.</p>
       </div>
 
-      {/* Anthropic */}
+      {/* LLM */}
       <div className="card p-6 space-y-4">
-        <h2 className="font-bold text-stone-900 text-lg">🤖 LLM-instellingen (Anthropic)</h2>
+        <h2 className="font-bold text-stone-900 text-lg">🤖 LLM-instellingen</h2>
         <p className="text-sm text-stone-500">
-          Je hebt een{' '}
-          <a href="https://console.anthropic.com" target="_blank" rel="noreferrer" className="text-orange-500 underline">
-            Anthropic API-sleutel
-          </a>{' '}
-          nodig. De sleutel wordt alleen lokaal opgeslagen in je browser.
+          Kies eerst je aanbieder en daarna het model. API-sleutels worden lokaal opgeslagen.
         </p>
 
         <label className="block">
-          <span className="text-sm font-semibold text-stone-700">API-sleutel</span>
+          <span className="text-sm font-semibold text-stone-700">Aanbieder</span>
+          <select
+            value={settings.llmProvider}
+            onChange={(e) => setProvider(e.target.value as LlmProvider)}
+            className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+          >
+            {LLM_PROVIDERS.map((provider) => (
+              <option key={provider.id} value={provider.id}>{provider.label}</option>
+            ))}
+          </select>
+        </label>
+
+        <p className="text-sm text-stone-500">
+          Je hebt een{' '}
+          <a href={activeProvider.docsUrl} target="_blank" rel="noreferrer" className="text-orange-500 underline">
+            {activeProvider.apiKeyLabel}
+          </a>{' '}
+          nodig, of zet `{activeProvider.envKey}` als server-env-variabele.
+        </p>
+        {hasServerApiKey && (
+          <p className="text-sm text-emerald-600">✓ Server-env heeft een {activeProvider.label} API-sleutel.</p>
+        )}
+
+        <label className="block">
+          <span className="text-sm font-semibold text-stone-700">{activeProvider.apiKeyLabel}</span>
           <input
             type="password"
-            value={settings.anthropicApiKey}
-            onChange={(e) => setSettings((p) => ({ ...p, anthropicApiKey: e.target.value }))}
-            placeholder="sk-ant-..."
+            value={
+              activeProvider.id === 'anthropic'
+                ? settings.anthropicApiKey
+                : activeProvider.id === 'openai'
+                  ? settings.openaiApiKey
+                  : settings.geminiApiKey
+            }
+            onChange={(e) => {
+              const value = e.target.value;
+              setSettings((p) => ({
+                ...p,
+                anthropicApiKey: activeProvider.id === 'anthropic' ? value : p.anthropicApiKey,
+                openaiApiKey: activeProvider.id === 'openai' ? value : p.openaiApiKey,
+                geminiApiKey: activeProvider.id === 'gemini' ? value : p.geminiApiKey,
+              }));
+            }}
+            placeholder={activeProvider.apiKeyPlaceholder}
             className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
           />
         </label>
@@ -107,14 +204,43 @@ export default function SettingsPage() {
           <span className="text-sm font-semibold text-stone-700">Model</span>
           <select
             value={settings.model}
-            onChange={(e) => setSettings((p) => ({ ...p, model: e.target.value }))}
+            onChange={(e) => setModel(e.target.value)}
             className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
           >
-            {MODELS.map((m) => (
+            {activeProvider.models.map((m) => (
               <option key={m.id} value={m.id}>{m.label}</option>
             ))}
           </select>
         </label>
+      </div>
+
+      {/* Plan */}
+      <div className="card p-6 space-y-4">
+        <h2 className="font-bold text-stone-900 text-lg">🍽️ Weekplan</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="text-sm font-semibold text-stone-700">Aantal maaltijden</span>
+            <input
+              type="number"
+              min={1}
+              max={10}
+              value={settings.mealCount}
+              onChange={(e) => setSettings((p) => ({ ...p, mealCount: Number(e.target.value) || DEFAULT_MEAL_COUNT }))}
+              className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-stone-700">Aantal porties per maaltijd</span>
+            <input
+              type="number"
+              min={1}
+              max={12}
+              value={settings.servings}
+              onChange={(e) => setSettings((p) => ({ ...p, servings: Number(e.target.value) || DEFAULT_SERVINGS }))}
+              className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+            />
+          </label>
+        </div>
       </div>
 
       {/* Picnic */}
@@ -122,7 +248,7 @@ export default function SettingsPage() {
         <h2 className="font-bold text-stone-900 text-lg">🛒 Picnic-account</h2>
         <p className="text-sm text-stone-500">
           Log in met je Picnic-account om aanbiedingen op te halen en boodschappen toe te voegen aan je mandje.
-          Je wachtwoord wordt nooit opgeslagen — alleen het sessie-token.
+          Je gegevens worden lokaal opgeslagen in je browser en in het lokale projectbestand.
         </p>
 
         <label className="block">
@@ -140,20 +266,24 @@ export default function SettingsPage() {
           <span className="text-sm font-semibold text-stone-700">Wachtwoord</span>
           <input
             type="password"
-            value={picnicPassword}
-            onChange={(e) => setPicnicPassword(e.target.value)}
-            placeholder="Wordt niet opgeslagen"
+            value={settings.picnicPassword}
+            onChange={(e) => setSettings((p) => ({ ...p, picnicPassword: e.target.value }))}
+            placeholder="Wordt lokaal opgeslagen"
             className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
           />
         </label>
 
         <button
           onClick={loginPicnic}
-          disabled={loginStatus === 'loading' || !settings.picnicEmail || !picnicPassword}
+          disabled={loginStatus === 'loading' || (!hasPicnicEnvCredentials && (!settings.picnicEmail || !settings.picnicPassword))}
           className="btn-secondary"
         >
           {loginStatus === 'loading' ? '⏳ Inloggen…' : '🔗 Verbinden met Picnic'}
         </button>
+
+        {hasPicnicEnvCredentials && (
+          <p className="text-sm text-emerald-600">✓ Server-env heeft Picnic-inloggegevens.</p>
+        )}
 
         {loginStatus === 'ok' && (
           <p className="text-sm text-emerald-600">✓ Ingelogd! Sessie-token opgeslagen.</p>

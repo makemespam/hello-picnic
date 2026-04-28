@@ -5,6 +5,20 @@ import RecipeCard from '@/components/RecipeCard';
 import ShoppingList from '@/components/ShoppingList';
 import type { MealPlan, ShoppingItem, AppSettings, PicnicPromotion } from '@/lib/types';
 import { DEFAULT_PANTRY_KEYS } from '@/data/pantry';
+import { normalizeSettings } from '@/lib/settings';
+import {
+  DEFAULT_LLM_PROVIDER,
+  DEFAULT_MEAL_COUNT,
+  DEFAULT_SERVINGS,
+  getDefaultModel,
+  getProviderConfig,
+  type LlmProvider,
+} from '@/lib/llm';
+
+type ConfigStatus = {
+  llmApiKeys: Partial<Record<LlmProvider, boolean>>;
+  picnicCredentials: boolean;
+};
 
 function buildShoppingList(plan: MealPlan, pantryItems: string[]): ShoppingItem[] {
   const pantrySet = new Set(pantryItems);
@@ -40,7 +54,7 @@ function buildShoppingList(plan: MealPlan, pantryItems: string[]): ShoppingItem[
   });
 }
 
-function loadSettings(): AppSettings | null {
+function loadBrowserSettings(): Partial<AppSettings> | null {
   try {
     const raw = localStorage.getItem('helloPicknicSettings');
     return raw ? JSON.parse(raw) : null;
@@ -67,22 +81,19 @@ export default function PlanPage() {
   const [promotions, setPromotions] = useState<PicnicPromotion[]>([]);
   const [loadingPromos, setLoadingPromos] = useState(false);
   const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [configStatus, setConfigStatus] = useState<ConfigStatus | null>(null);
 
-  useEffect(() => {
-    const s = loadSettings();
-    setSettings(s);
-
-    const saved = loadSavedPlan();
-    if (saved) {
-      setPlan(saved);
-      const pantry = s?.pantryItems ?? DEFAULT_PANTRY_KEYS;
-      setShoppingItems(buildShoppingList(saved, pantry));
+  const fetchConfigStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/config/status');
+      const data = await res.json();
+      setConfigStatus(data);
+    } catch {
+      setConfigStatus(null);
     }
-
-    if (s?.picnicAuthToken) fetchPromotions(s.picnicAuthToken);
   }, []);
 
-  async function fetchPromotions(token: string) {
+  const fetchPromotions = useCallback(async (token: string) => {
     setLoadingPromos(true);
     try {
       const res = await fetch('/api/picnic/promotions', {
@@ -91,11 +102,40 @@ export default function PlanPage() {
       const data = await res.json();
       setPromotions(data.promotions ?? []);
     } catch {
-      /* silent — promotions are optional */
+      /* silent - promotions are optional */
     } finally {
       setLoadingPromos(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    async function loadAppSettings() {
+      const browserSettings = loadBrowserSettings();
+      let s = normalizeSettings(browserSettings);
+      try {
+        const res = await fetch('/api/settings');
+        const data = await res.json();
+        s = normalizeSettings(data.exists ? { ...browserSettings, ...data.settings } : browserSettings);
+        localStorage.setItem('helloPicknicSettings', JSON.stringify(s));
+      } catch {
+        /* browser settings are enough to keep the page usable */
+      }
+
+      setSettings(s);
+
+      const saved = loadSavedPlan();
+      if (saved) {
+        setPlan(saved);
+        const pantry = s?.pantryItems ?? DEFAULT_PANTRY_KEYS;
+        setShoppingItems(buildShoppingList(saved, pantry));
+      }
+
+      if (s?.picnicAuthToken) fetchPromotions(s.picnicAuthToken);
+    }
+
+    loadAppSettings();
+    fetchConfigStatus();
+  }, [fetchConfigStatus, fetchPromotions]);
 
   async function generate() {
     setLoading(true);
@@ -110,8 +150,15 @@ export default function PlanPage() {
         preferences,
         pantryItems,
         promotions,
-        apiKey: settings?.anthropicApiKey ?? '',
-        model: settings?.model ?? 'claude-sonnet-4-6',
+        provider: settings?.llmProvider ?? DEFAULT_LLM_PROVIDER,
+        apiKeys: {
+          anthropic: settings?.anthropicApiKey ?? '',
+          openai: settings?.openaiApiKey ?? '',
+          gemini: settings?.geminiApiKey ?? '',
+        },
+        model: settings?.model ?? getDefaultModel(DEFAULT_LLM_PROVIDER),
+        mealCount: settings?.mealCount ?? DEFAULT_MEAL_COUNT,
+        servings: settings?.servings ?? DEFAULT_SERVINGS,
       }),
     });
 
@@ -136,7 +183,16 @@ export default function PlanPage() {
     setShoppingItems(items);
   }, []);
 
-  const hasApiKey = !!(settings?.anthropicApiKey || process.env.NEXT_PUBLIC_HAS_API_KEY);
+  const provider = getProviderConfig(settings?.llmProvider ?? DEFAULT_LLM_PROVIDER);
+  const selectedApiKey =
+    provider.id === 'anthropic'
+      ? settings?.anthropicApiKey
+      : provider.id === 'openai'
+        ? settings?.openaiApiKey
+        : settings?.geminiApiKey;
+  const hasApiKey = !!(selectedApiKey || configStatus?.llmApiKeys?.[provider.id]);
+  const mealCount = settings?.mealCount ?? DEFAULT_MEAL_COUNT;
+  const servings = settings?.servings ?? DEFAULT_SERVINGS;
 
   return (
     <div className="space-y-10">
@@ -144,7 +200,7 @@ export default function PlanPage() {
       <div>
         <h1 className="text-3xl font-extrabold text-stone-900">Weekplan genereren</h1>
         <p className="mt-1 text-stone-500">
-          Vertel wat je lekker lijkt, en Claude stelt 4 slimme maaltijden samen.
+          Vertel wat je lekker lijkt, en {provider.label} stelt {mealCount} slimme maaltijden voor {servings} personen samen.
         </p>
       </div>
 
@@ -167,16 +223,16 @@ export default function PlanPage() {
             {loadingPromos ? (
               <span>⏳ Aanbiedingen ophalen…</span>
             ) : promotions.length > 0 ? (
-              <span className="text-emerald-600">✓ {promotions.length} Picnic-aanbiedingen meegestuurd naar Claude</span>
+              <span className="text-emerald-600">✓ {promotions.length} Picnic-aanbiedingen meegestuurd naar {provider.label}</span>
             ) : (
               <span>Geen aanbiedingen gevonden (of niet ingelogd)</span>
             )}
           </div>
         )}
 
-        {!settings?.anthropicApiKey && (
+        {!hasApiKey && (
           <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-4 py-2">
-            ⚠️ Stel eerst je Anthropic API-sleutel in via{' '}
+            ⚠️ Stel eerst je {provider.label} API-sleutel in via{' '}
             <a href="/instellingen" className="underline font-medium">Instellingen</a>.
           </p>
         )}
@@ -193,7 +249,7 @@ export default function PlanPage() {
           {loading ? (
             <>
               <span className="animate-spin">⏳</span>
-              Claude genereert je weekplan…
+              {provider.label} genereert je weekplan…
             </>
           ) : (
             <>✨ Genereer weekplan</>
@@ -213,7 +269,7 @@ export default function PlanPage() {
           {/* Recipe grid */}
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-stone-900">Jouw 4 maaltijden</h2>
+              <h2 className="text-xl font-bold text-stone-900">Jouw {plan.recipes.length} maaltijden</h2>
               <button
                 onClick={generate}
                 disabled={loading}

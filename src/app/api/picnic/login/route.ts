@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PICNIC_BASE, PICNIC_HEADERS, md5 } from '@/lib/picnic';
+import { readLocalSettings } from '@/lib/settings-store';
 
 export async function POST(req: NextRequest) {
   const { email, password } = await req.json();
+  const settings = await readLocalSettings();
+  const resolvedEmail = email || settings.picnicEmail || process.env.PICNIC_EMAIL;
+  const resolvedPassword = password || settings.picnicPassword || process.env.PICNIC_PASSWORD;
 
-  if (!email || !password) {
+  if (!resolvedEmail || !resolvedPassword) {
     return NextResponse.json({ error: 'Email en wachtwoord zijn verplicht' }, { status: 400 });
   }
 
   const res = await fetch(`${PICNIC_BASE}/user/login`, {
     method: 'POST',
     headers: PICNIC_HEADERS,
-    body: JSON.stringify({ key: email, secret: md5(password), client_id: 1 }),
+    body: JSON.stringify({ key: resolvedEmail, secret: md5(resolvedPassword), client_id: 1 }),
   });
 
   if (!res.ok) {

@@ -1,11 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import type { PicnicPromotion, MealPlan } from '@/lib/types';
+import {
+  DEFAULT_LLM_PROVIDER,
+  DEFAULT_MEAL_COUNT,
+  DEFAULT_SERVINGS,
+  getProviderConfig,
+  getValidModel,
+  type LlmProvider,
+} from '@/lib/llm';
+import { readLocalSettings } from '@/lib/settings-store';
 
-const SYSTEM_PROMPT = `Je bent een slimme Nederlandse maaltijdplanner. Je genereert 4 gezonde avondmaaltijden voor 2 personen.
+const SYSTEM_PROMPT = `Je bent een slimme Nederlandse maaltijdplanner. Je genereert {MEAL_COUNT} gezonde avondmaaltijden voor {SERVINGS} personen.
 
 REGELS:
 - Alleen vegetarisch of vis — geen vlees
+- Genereer exact {MEAL_COUNT} recepten
+- Elk recept heeft exact "servings": {SERVINGS}
+- "type" is alleen "vega" of "vis"
+- "difficulty" is alleen "easy", "medium" of "hard"
+- "category" is alleen "groenten", "fruit", "zuivel", "vis", "kruiden", "granen", "peulvruchten" of "overig"
 - Gezond, gevarieerd en seizoensgebonden
 - Recepten zijn realistisch en smakelijk, in de stijl van Hello Fresh
 - Instructies in heldere, vriendelijke Nederlandse taal (jij-vorm)
@@ -31,18 +45,18 @@ Geef je antwoord als GELDIG JSON — geen markdown, geen extra tekst, alleen JSO
       "id": "unieke-kebab-slug",
       "title": "Receptnaam",
       "description": "Verleidelijke beschrijving van 1-2 zinnen",
-      "type": "vega" or "vis",
+      "type": "vega",
       "emoji": "🍝",
       "time": 30,
-      "difficulty": "easy" or "medium" or "hard",
-      "servings": 2,
+      "difficulty": "easy",
+      "servings": {SERVINGS},
       "ingredients": [
         {
           "name": "canonical-slug",
           "display": "Weergavenaam",
           "amount": 2,
           "unit": "stuks",
-          "category": "groenten" or "fruit" or "zuivel" or "vis" or "kruiden" or "granen" or "peulvruchten" or "overig",
+          "category": "groenten",
           "pantry": false
         }
       ],
@@ -56,7 +70,24 @@ Geef je antwoord als GELDIG JSON — geen markdown, geen extra tekst, alleen JSO
   "rationale": "Leg hier in 2-4 zinnen uit welke ingrediënten je bewust hergebruikt over meerdere recepten en waarom."
 }`;
 
-function buildPrompt(preferences: string, pantryItems: string[], promotions: PicnicPromotion[]) {
+function clampInt(value: unknown, fallback: number, min: number, max: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(parsed)));
+}
+
+function usableKey(value: string | undefined) {
+  if (!value || value.startsWith('your_')) return '';
+  return value;
+}
+
+function buildPrompt(
+  preferences: string,
+  pantryItems: string[],
+  promotions: PicnicPromotion[],
+  mealCount: number,
+  servings: number
+) {
   const pantryList = pantryItems.length > 0
     ? pantryItems.join(', ')
     : 'olijfolie, zout, peper, suiker, boter, bloem, sojasaus, honing, azijn, tomatenpuree, paprikapoeder, komijn, kurkuma, chilivlokken, gedroogde oregano, gedroogde tijm, groentebouillon, sesamolie, sesamzaad';
@@ -66,12 +97,14 @@ function buildPrompt(preferences: string, pantryItems: string[], promotions: Pic
     : 'Geen aanbiedingen beschikbaar.';
 
   const system = SYSTEM_PROMPT
+    .replaceAll('{MEAL_COUNT}', String(mealCount))
+    .replaceAll('{SERVINGS}', String(servings))
     .replace('{PANTRY_LIST}', pantryList)
     .replace('{PROMOTIONS}', promotionsList);
 
   const userMessage = preferences?.trim()
-    ? `Genereer een 4-daags weekplan. Mijn wensen: ${preferences}`
-    : 'Genereer een verrassend 4-daags weekplan met gevarieerde, lekkere recepten.';
+    ? `Genereer een weekplan met ${mealCount} maaltijden voor ${servings} personen. Mijn wensen: ${preferences}`
+    : `Genereer een verrassend weekplan met ${mealCount} maaltijden voor ${servings} personen met gevarieerde, lekkere recepten.`;
 
   return { system, userMessage };
 }
@@ -87,31 +120,132 @@ function extractJson(text: string): string {
   return text;
 }
 
-export async function POST(req: NextRequest) {
-  const { preferences, pantryItems, promotions, apiKey, model } = await req.json();
+function ensureMealPlanShape(value: unknown): { recipes: MealPlan['recipes']; rationale: string } {
+  if (!value || typeof value !== 'object') {
+    throw new Error('Response is geen object');
+  }
+  const candidate = value as { recipes?: unknown; rationale?: unknown };
+  if (!Array.isArray(candidate.recipes)) {
+    throw new Error('Response mist recipes-array');
+  }
+  return {
+    recipes: candidate.recipes as MealPlan['recipes'],
+    rationale: typeof candidate.rationale === 'string' ? candidate.rationale : '',
+  };
+}
 
-  const resolvedKey = apiKey || process.env.ANTHROPIC_API_KEY;
+async function callAnthropic(apiKey: string, model: string, system: string, userMessage: string) {
+  const client = new Anthropic({ apiKey });
+  const response = await client.messages.create({
+    model,
+    max_tokens: 4096,
+    system,
+    messages: [{ role: 'user', content: userMessage }],
+  });
+  return response.content.find((part) => part.type === 'text')?.text ?? '';
+}
+
+async function callOpenAI(apiKey: string, model: string, system: string, userMessage: string) {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: `${system}\n\nJe moet valide JSON teruggeven.` },
+        { role: 'user', content: userMessage },
+      ],
+      response_format: { type: 'json_object' },
+      max_completion_tokens: 4096,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data?.error?.message ?? `OpenAI API gaf HTTP ${res.status}`);
+  }
+  return data?.choices?.[0]?.message?.content ?? '';
+}
+
+async function callGemini(apiKey: string, model: string, system: string, userMessage: string) {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [{ text: system }],
+        },
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: userMessage }],
+          },
+        ],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          maxOutputTokens: 4096,
+        },
+      }),
+    }
+  );
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data?.error?.message ?? `Gemini API gaf HTTP ${res.status}`);
+  }
+  return data?.candidates?.[0]?.content?.parts?.map((part: { text?: string }) => part.text ?? '').join('') ?? '';
+}
+
+export async function POST(req: NextRequest) {
+  const {
+    preferences,
+    pantryItems,
+    promotions,
+    apiKey,
+    apiKeys,
+    model,
+    provider,
+    mealCount: rawMealCount,
+    servings: rawServings,
+  } = await req.json();
+
+  const savedSettings = await readLocalSettings();
+  const resolvedProvider = getProviderConfig(provider ?? savedSettings.llmProvider ?? DEFAULT_LLM_PROVIDER);
+  const providerId = resolvedProvider.id as LlmProvider;
+  const mealCount = clampInt(rawMealCount ?? savedSettings.mealCount, DEFAULT_MEAL_COUNT, 1, 10);
+  const servings = clampInt(rawServings ?? savedSettings.servings, DEFAULT_SERVINGS, 1, 12);
+  const providerApiKeys = apiKeys as Partial<Record<LlmProvider, string>> | undefined;
+  const savedApiKeys: Record<LlmProvider, string> = {
+    anthropic: savedSettings.anthropicApiKey,
+    openai: savedSettings.openaiApiKey,
+    gemini: savedSettings.geminiApiKey,
+  };
+
+  const envKey = usableKey(process.env[resolvedProvider.envKey]);
+  const resolvedKey = usableKey(providerApiKeys?.[providerId]) || usableKey(apiKey) || usableKey(savedApiKeys[providerId]) || envKey;
   if (!resolvedKey) {
     return NextResponse.json(
-      { error: 'Geen Anthropic API-sleutel. Voeg hem toe in Instellingen of als ANTHROPIC_API_KEY env-variabele.' },
+      { error: `Geen ${resolvedProvider.label} API-sleutel. Voeg hem toe in Instellingen of als ${resolvedProvider.envKey} env-variabele.` },
       { status: 400 }
     );
   }
 
-  const resolvedModel = model || process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
-
-  const client = new Anthropic({ apiKey: resolvedKey });
-  const { system, userMessage } = buildPrompt(preferences, pantryItems ?? [], promotions ?? []);
+  const modelEnvKey = `${resolvedProvider.envKey.replace('_API_KEY', '')}_MODEL`;
+  const resolvedModel = process.env[modelEnvKey] || getValidModel(providerId, model ?? savedSettings.model);
+  const { system, userMessage } = buildPrompt(preferences, pantryItems ?? [], promotions ?? [], mealCount, servings);
 
   let text: string;
   try {
-    const response = await client.messages.create({
-      model: resolvedModel,
-      max_tokens: 4096,
-      system,
-      messages: [{ role: 'user', content: userMessage }],
-    });
-    text = response.content[0].type === 'text' ? response.content[0].text : '';
+    if (providerId === 'openai') {
+      text = await callOpenAI(resolvedKey, resolvedModel, system, userMessage);
+    } else if (providerId === 'gemini') {
+      text = await callGemini(resolvedKey, resolvedModel, system, userMessage);
+    } else {
+      text = await callAnthropic(resolvedKey, resolvedModel, system, userMessage);
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: `LLM-fout: ${msg}` }, { status: 500 });
@@ -119,10 +253,10 @@ export async function POST(req: NextRequest) {
 
   let parsed: { recipes: MealPlan['recipes']; rationale: string };
   try {
-    parsed = JSON.parse(extractJson(text));
+    parsed = ensureMealPlanShape(JSON.parse(extractJson(text)));
   } catch {
     return NextResponse.json(
-      { error: 'LLM gaf geen geldige JSON terug. Probeer het opnieuw.', raw: text },
+      { error: 'LLM gaf geen geldige JSON terug. Probeer het opnieuw of kies een ander model.', raw: text },
       { status: 500 }
     );
   }
@@ -132,6 +266,8 @@ export async function POST(req: NextRequest) {
     rationale: parsed.rationale,
     generatedAt: new Date().toISOString(),
     preferences: preferences ?? '',
+    mealCount,
+    servings,
   };
 
   return NextResponse.json({ plan });

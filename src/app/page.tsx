@@ -4,7 +4,7 @@ const features = [
   {
     icon: '🤖',
     title: 'LLM genereert recepten',
-    description: 'Claude bedenkt elke keer verse, gezonde vega- en visrecepten op basis van jouw wensen.',
+    description: 'Kies Anthropic, OpenAI of Gemini voor verse, gezonde vega- en visrecepten op basis van jouw wensen.',
   },
   {
     icon: '🏷️',

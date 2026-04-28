@@ -1,3 +1,5 @@
+import type { LlmProvider } from './llm';
+
 export type RecipeType = 'vega' | 'vis';
 export type Difficulty = 'easy' | 'medium' | 'hard';
 export type IngredientCategory =
@@ -38,6 +40,8 @@ export interface MealPlan {
   rationale: string;    // LLM explains ingredient overlap reasoning
   generatedAt: string;
   preferences: string;
+  mealCount: number;
+  servings: number;
 }
 
 export interface ShoppingItem {
@@ -69,9 +73,16 @@ export interface PicnicPromotion {
 }
 
 export interface AppSettings {
+  llmProvider: LlmProvider;
   anthropicApiKey: string;
+  openaiApiKey: string;
+  geminiApiKey: string;
   model: string;
+  modelsByProvider: Partial<Record<LlmProvider, string>>;
+  mealCount: number;
+  servings: number;
   picnicAuthToken: string;
   picnicEmail: string;
+  picnicPassword: string;
   pantryItems: string[]; // canonical names of pantry items the user has
 }
