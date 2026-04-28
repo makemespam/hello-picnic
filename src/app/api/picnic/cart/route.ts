@@ -35,3 +35,25 @@ export async function GET(req: NextRequest) {
   const data = await res.json();
   return NextResponse.json(data, { status: res.ok ? 200 : res.status });
 }
+
+// DELETE: clear current cart
+export async function DELETE(req: NextRequest) {
+  const token = req.headers.get('x-picnic-auth');
+  if (!token) return NextResponse.json({ error: 'Niet ingelogd bij Picnic' }, { status: 401 });
+
+  const res = await fetch(`${PICNIC_BASE}/cart/clear`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  });
+
+  const text = await res.text();
+  const data = text ? (() => {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { detail: text };
+    }
+  })() : { ok: res.ok };
+
+  return NextResponse.json(data, { status: res.ok ? 200 : res.status });
+}

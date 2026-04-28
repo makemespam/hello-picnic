@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import RecipeCard from '@/components/RecipeCard';
 import ShoppingList from '@/components/ShoppingList';
-import type { MealPlan, ShoppingItem, AppSettings, PicnicPromotion } from '@/lib/types';
+import type { MealPlan, Recipe, RecipeLibraryItem, ShoppingItem, AppSettings, PicnicPromotion } from '@/lib/types';
 import { DEFAULT_PANTRY_KEYS } from '@/data/pantry';
 import { normalizeSettings } from '@/lib/settings';
 import {
@@ -83,6 +83,7 @@ export default function PlanPage() {
   const [loadingPromos, setLoadingPromos] = useState(false);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [configStatus, setConfigStatus] = useState<ConfigStatus | null>(null);
+  const [replacingRecipeId, setReplacingRecipeId] = useState<string | null>(null);
 
   const fetchConfigStatus = useCallback(async () => {
     try {
@@ -171,13 +172,91 @@ export default function PlanPage() {
       return;
     }
 
-    const newPlan: MealPlan = data.plan;
+    let newPlan: MealPlan = data.plan;
+    newPlan = await saveRecipesToLibrary(newPlan);
     setPlan(newPlan);
     localStorage.setItem('helloPicknicPlan', JSON.stringify(newPlan));
 
     const items = buildShoppingList(newPlan, pantryItems);
     setShoppingItems(items);
     setLoading(false);
+  }
+
+  async function saveRecipesToLibrary(nextPlan: MealPlan): Promise<MealPlan> {
+    const res = await fetch('/api/recipe-library', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recipes: nextPlan.recipes }),
+    });
+    const data = await res.json();
+    const items = (data.items ?? []) as RecipeLibraryItem[];
+    const recipes = nextPlan.recipes.map((recipe, index) => items[index]?.recipe ?? recipe);
+    return { ...nextPlan, recipes };
+  }
+
+  async function updateRecipeStatus(recipe: Recipe, status: Recipe['status']) {
+    if (!recipe.libraryId || !status || !plan) return;
+    const res = await fetch('/api/recipe-library', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ libraryId: recipe.libraryId, status }),
+    });
+    const data = await res.json();
+    const updated = data.item?.recipe as Recipe | undefined;
+    if (!updated) return;
+    const nextPlan = {
+      ...plan,
+      recipes: plan.recipes.map((item) => item.libraryId === recipe.libraryId ? updated : item),
+    };
+    setPlan(nextPlan);
+    localStorage.setItem('helloPicknicPlan', JSON.stringify(nextPlan));
+  }
+
+  async function replaceRecipe(recipe: Recipe) {
+    if (!plan) return;
+    setReplacingRecipeId(recipe.libraryId ?? recipe.id);
+    setError('');
+    if (recipe.libraryId) {
+      await updateRecipeStatus(recipe, 'rejected');
+    }
+
+    const pantryItems = settings?.pantryItems ?? DEFAULT_PANTRY_KEYS;
+    const avoidTitles = plan.recipes.map((item) => item.title).join(', ');
+    const res = await fetch('/api/generate-plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        preferences: `Genereer 1 alternatief voor "${recipe.title}". Vermijd deze eerder gegenereerde maaltijden: ${avoidTitles}. Houd dezelfde stijl, vegetarisch of vis, en maak het duidelijk anders.`,
+        pantryItems,
+        promotions,
+        provider: settings?.llmProvider ?? DEFAULT_LLM_PROVIDER,
+        apiKeys: {
+          anthropic: settings?.anthropicApiKey ?? '',
+          openai: settings?.openaiApiKey ?? '',
+          gemini: settings?.geminiApiKey ?? '',
+        },
+        model: settings?.model ?? getDefaultModel(DEFAULT_LLM_PROVIDER),
+        mealCount: 1,
+        servings: settings?.servings ?? DEFAULT_SERVINGS,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      setError(data.error ?? 'Alternatief genereren mislukt.');
+      setReplacingRecipeId(null);
+      return;
+    }
+
+    const replacementPlan = await saveRecipesToLibrary(data.plan);
+    const replacement = replacementPlan.recipes[0];
+    const nextPlan = {
+      ...plan,
+      recipes: plan.recipes.map((item) => item.libraryId === recipe.libraryId || item.id === recipe.id ? replacement : item),
+    };
+    setPlan(nextPlan);
+    localStorage.setItem('helloPicknicPlan', JSON.stringify(nextPlan));
+    setShoppingItems(buildShoppingList(nextPlan, pantryItems));
+    setReplacingRecipeId(null);
   }
 
   const handleItemsChange = useCallback((items: ShoppingItem[]) => {
@@ -284,7 +363,14 @@ export default function PlanPage() {
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {plan.recipes.map((recipe, i) => (
-                <RecipeCard key={recipe.id} recipe={recipe} day={i + 1} />
+                <RecipeCard
+                  key={recipe.libraryId ?? recipe.id}
+                  recipe={recipe}
+                  day={i + 1}
+                  onApprove={(item) => updateRecipeStatus(item, 'approved')}
+                  onReplace={replaceRecipe}
+                  replacing={replacingRecipeId === (recipe.libraryId ?? recipe.id)}
+                />
               ))}
             </div>
           </div>

@@ -24,16 +24,19 @@ const STOPWORDS = new Set([
 ]);
 
 const BAD_BY_CATEGORY: Partial<Record<IngredientCategory, string[]>> = {
-  groenten: ['saus', 'soep', 'spread', 'chips', 'mix', 'doperwten en wortelen', 'à la crème', 'a la creme'],
-  fruit: ['afwasmiddel', 'schoonmaak', 'zeep', 'limonade', 'siroop', 'toetje', 'yoghurt'],
-  zuivel: ['mie', 'noedels', 'saus', 'koek', 'snoep'],
+  groenten: ['saus', 'soep', 'spread', 'chips', 'mix', 'doperwten en wortelen', 'à la crème', 'a la creme', 'maaltijd'],
+  fruit: ['afwasmiddel', 'schoonmaak', 'zeep', 'limonade', 'siroop', 'toetje', 'yoghurt', 'thee'],
+  zuivel: ['mie', 'noedels', 'saus', 'koek', 'snoep', 'verrassingssmaak'],
   kruiden: ['saus', 'dressing', 'chips', 'soep', 'mix'],
   granen: ['pap', 'snack', 'koek'],
   peulvruchten: ['soep', 'chips', 'snack'],
-  overig: ['baby', 'olvarit', '12+ mnd', '6+ mnd'],
+  vis: ['maaltijd', 'aardappel', 'spinazie', 'saus', 'mosterdsaus'],
+  overig: [],
 };
 
 const REQUIRED_TERMS: Record<string, string[]> = {
+  cherrytomaten: ['tomaat', 'tomaten', 'cherry', 'cherrytomaten', 'snoeptomaat'],
+  tomaten: ['tomaat', 'tomaten'],
   citroen: ['citroen'],
   limoen: ['limoen'],
   knoflook: ['knoflook'],
@@ -43,6 +46,9 @@ const REQUIRED_TERMS: Record<string, string[]> = {
   paksoi: ['paksoi'],
   spinazie: ['spinazie'],
   wortel: ['wortel', 'wortelen'],
+  zoete: ['zoete aardappel', 'zoete aardappelen'],
+  prei: ['prei'],
+  doperwten: ['doperwten', 'erwten'],
   eieren: ['ei', 'eier', 'eieren'],
   ei: ['ei', 'eier', 'eieren'],
   kokosmelk: ['kokosmelk'],
@@ -54,6 +60,18 @@ const REQUIRED_TERMS: Record<string, string[]> = {
 };
 
 const COLOR_TERMS = ['rode', 'rood', 'gele', 'geel', 'groene', 'groen', 'witte', 'wit'];
+const GLOBAL_BAD_TERMS = [
+  'baby',
+  'olvarit',
+  '12+ mnd',
+  '6+ mnd',
+  'de kleine keuken',
+  'afwasmiddel',
+  'schoonmaak',
+  'thee',
+  'limonade',
+  'maaltijd',
+];
 
 function words(value: string) {
   return value
@@ -71,15 +89,27 @@ function requiredTermsFor(query: string) {
   return words(query).slice(0, 2);
 }
 
+function hasRequiredTerm(name: string, term: string) {
+  if (term.includes(' ')) return name.includes(term);
+  return name.includes(term);
+}
+
 function scoreArticle(query: string, category: IngredientCategory | null | undefined, article: PicnicArticle) {
   const name = article.name.toLocaleLowerCase('nl-NL');
   const queryWords = words(query);
   const required = requiredTermsFor(query);
   let score = 0;
 
+  for (const bad of GLOBAL_BAD_TERMS) {
+    if (name.includes(bad)) score -= 120;
+  }
+
+  const hasAnyRequired = required.some((term) => hasRequiredTerm(name, term));
+  if (hasAnyRequired) score += 35;
+  else score -= 85;
+
   for (const term of required) {
-    if (name.includes(term)) score += 30;
-    else score -= 60;
+    if (hasRequiredTerm(name, term)) score += 12;
   }
 
   for (const word of queryWords) {
@@ -91,6 +121,10 @@ function scoreArticle(query: string, category: IngredientCategory | null | undef
     const colorRoot = queryColor.slice(0, 3);
     if (name.includes(colorRoot)) score += 25;
     else score -= 35;
+  }
+
+  if (query.toLocaleLowerCase('nl-NL').includes('ui') && name.includes('rode') && !query.toLocaleLowerCase('nl-NL').includes('rode')) {
+    score -= 20;
   }
 
   for (const bad of BAD_BY_CATEGORY[category ?? 'overig'] ?? []) {

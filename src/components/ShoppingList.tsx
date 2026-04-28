@@ -23,6 +23,7 @@ interface Props {
 
 export default function ShoppingList({ items, picnicToken, onItemsChange }: Props) {
   const [addingAll, setAddingAll] = useState(false);
+  const [clearingCart, setClearingCart] = useState(false);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [picnicError, setPicnicError] = useState('');
 
@@ -41,7 +42,7 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
     onItemsChange(
       items.map((i) => (i.name === item.name ? { ...i, searching: true } : i))
     );
-    const res = await fetch(`/api/picnic/search?q=${encodeURIComponent(item.display)}&category=${encodeURIComponent(item.category)}&force=1`, {
+    const res = await fetch(`/api/picnic/search?q=${encodeURIComponent(item.display)}&category=${encodeURIComponent(item.category)}&force=1&llmCheck=1`, {
       headers: { 'x-picnic-auth': picnicToken },
     });
     const data = await res.json();
@@ -83,7 +84,7 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
     for (const item of toBuy) {
       if (!item.picnicArticle) {
         // search first
-        const res = await fetch(`/api/picnic/search?q=${encodeURIComponent(item.display)}&category=${encodeURIComponent(item.category)}&force=1`, {
+        const res = await fetch(`/api/picnic/search?q=${encodeURIComponent(item.display)}&category=${encodeURIComponent(item.category)}&force=1&llmCheck=1`, {
           headers: { 'x-picnic-auth': picnicToken },
         });
         const data = await res.json();
@@ -114,26 +115,53 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
     setAddingAll(false);
   }
 
+  async function clearCart() {
+    if (!picnicToken) return;
+    setClearingCart(true);
+    setPicnicError('');
+    const res = await fetch('/api/picnic/cart', {
+      method: 'DELETE',
+      headers: { 'x-picnic-auth': picnicToken },
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setPicnicError(data.error?.message ?? data.error ?? 'Picnic-mandje leegmaken mislukt.');
+      setClearingCart(false);
+      return;
+    }
+    setAddedIds(new Set());
+    setClearingCart(false);
+  }
+
   if (items.length === 0) return null;
 
   return (
     <div className="space-y-6">
       {/* Picnic action bar */}
       {picnicToken && (
-        <div className="flex items-center justify-between rounded-2xl bg-blue-50 p-4">
+        <div className="flex flex-col gap-4 rounded-2xl bg-blue-50 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="font-semibold text-blue-900">Verbonden met Picnic</p>
             <p className="text-sm text-blue-700">
               {addingAll ? 'Bezig met toevoegen...' : 'Voeg alle boodschappen in één klik toe aan je Picnic-mandje.'}
             </p>
           </div>
-          <button
-            onClick={searchAndAddAll}
-            disabled={addingAll}
-            className="btn-primary bg-blue-600 hover:bg-blue-700 whitespace-nowrap"
-          >
-            {addingAll ? '⏳ Bezig...' : '🛒 Alles naar Picnic'}
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              onClick={clearCart}
+              disabled={clearingCart || addingAll}
+              className="btn-secondary whitespace-nowrap"
+            >
+              {clearingCart ? 'Leegmaken...' : 'Mandje leegmaken'}
+            </button>
+            <button
+              onClick={searchAndAddAll}
+              disabled={addingAll || clearingCart}
+              className="btn-primary bg-blue-600 hover:bg-blue-700 whitespace-nowrap"
+            >
+              {addingAll ? '⏳ Bezig...' : '🛒 Alles naar Picnic'}
+            </button>
+          </div>
         </div>
       )}
 

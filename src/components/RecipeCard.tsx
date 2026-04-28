@@ -15,9 +15,12 @@ const DIFFICULTY_LABEL: Record<string, string> = {
 interface Props {
   recipe: Recipe;
   day?: number;
+  onApprove?: (recipe: Recipe) => void;
+  onReplace?: (recipe: Recipe) => void;
+  replacing?: boolean;
 }
 
-export default function RecipeCard({ recipe, day }: Props) {
+export default function RecipeCard({ recipe, day, onApprove, onReplace, replacing }: Props) {
   return (
     <div className="card overflow-hidden flex flex-col">
       {/* Hero */}
@@ -33,6 +36,11 @@ export default function RecipeCard({ recipe, day }: Props) {
               Dag {day}
             </span>
           )}
+          {recipe.libraryNumber && (
+            <span className="text-xs font-semibold uppercase text-stone-400">
+              #{recipe.libraryNumber}
+            </span>
+          )}
           {recipe.type === 'vega' ? (
             <span className="badge-vega">🌿 Vega</span>
           ) : (
@@ -41,6 +49,11 @@ export default function RecipeCard({ recipe, day }: Props) {
           {recipe.usedPromotion && (
             <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-semibold text-yellow-800">
               🏷️ Aanbieding
+            </span>
+          )}
+          {recipe.status === 'approved' && (
+            <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+              Goedgekeurd
             </span>
           )}
         </div>
@@ -60,6 +73,29 @@ export default function RecipeCard({ recipe, day }: Props) {
         >
           Bekijk recept →
         </Link>
+
+        {(onApprove || onReplace) && (
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {onApprove && (
+              <button
+                onClick={() => onApprove(recipe)}
+                disabled={recipe.status === 'approved'}
+                className="rounded-full bg-emerald-100 px-3 py-1.5 text-sm font-semibold text-emerald-700 disabled:opacity-50"
+              >
+                Akkoord
+              </button>
+            )}
+            {onReplace && (
+              <button
+                onClick={() => onReplace(recipe)}
+                disabled={replacing}
+                className="rounded-full bg-amber-100 px-3 py-1.5 text-sm font-semibold text-amber-700 disabled:opacity-50"
+              >
+                {replacing ? 'Vervangen...' : 'Alternatief'}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -23,6 +23,9 @@ export interface Ingredient {
 }
 
 export interface Recipe {
+  libraryId?: string;
+  libraryNumber?: number;
+  status?: 'pending' | 'approved' | 'rejected';
   id: string;
   title: string;
   description: string;
@@ -98,4 +101,13 @@ export interface MealImageResult {
   quality?: OpenAIImageQuality;
   prompt: string;
   imageDataUrl: string;
+}
+
+export interface RecipeLibraryItem {
+  libraryId: string;
+  libraryNumber: number;
+  recipe: Recipe;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+  updatedAt: string;
 }
