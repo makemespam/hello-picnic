@@ -24,6 +24,7 @@ interface Props {
 export default function ShoppingList({ items, picnicToken, onItemsChange }: Props) {
   const [addingAll, setAddingAll] = useState(false);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
+  const [picnicError, setPicnicError] = useState('');
 
   const toBuy = items.filter((i) => !i.pantry);
   const pantryItems = items.filter((i) => i.pantry);
@@ -36,6 +37,7 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
 
   async function searchPicnic(item: ShoppingItem) {
     if (!picnicToken) return;
+    setPicnicError('');
     onItemsChange(
       items.map((i) => (i.name === item.name ? { ...i, searching: true } : i))
     );
@@ -43,6 +45,11 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
       headers: { 'x-picnic-auth': picnicToken },
     });
     const data = await res.json();
+    if (!res.ok || data.error) {
+      setPicnicError(data.error ?? 'Zoeken bij Picnic mislukt.');
+      onItemsChange(items.map((i) => (i.name === item.name ? { ...i, searching: false, notFound: true } : i)));
+      return;
+    }
     const article: PicnicArticle | undefined = data.articles?.[0];
     onItemsChange(
       items.map((i) =>
@@ -55,17 +62,24 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
 
   async function addToCart(item: ShoppingItem) {
     if (!picnicToken || !item.picnicArticle) return;
-    await fetch('/api/picnic/cart', {
+    setPicnicError('');
+    const res = await fetch('/api/picnic/cart', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-picnic-auth': picnicToken },
       body: JSON.stringify({ articleId: item.picnicArticle.id, count: 1 }),
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setPicnicError(data.error?.message ?? data.error ?? 'Toevoegen aan Picnic mislukt.');
+      return;
+    }
     setAddedIds((prev) => new Set([...prev, item.name]));
   }
 
   async function searchAndAddAll() {
     if (!picnicToken) return;
     setAddingAll(true);
+    setPicnicError('');
     for (const item of toBuy) {
       if (!item.picnicArticle) {
         // search first
@@ -73,13 +87,22 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
           headers: { 'x-picnic-auth': picnicToken },
         });
         const data = await res.json();
+        if (!res.ok || data.error) {
+          setPicnicError(data.error ?? 'Zoeken bij Picnic mislukt.');
+          break;
+        }
         const article: PicnicArticle | undefined = data.articles?.[0];
         if (article) {
-          await fetch('/api/picnic/cart', {
+          const addRes = await fetch('/api/picnic/cart', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-picnic-auth': picnicToken },
             body: JSON.stringify({ articleId: article.id, count: 1 }),
           });
+          if (!addRes.ok) {
+            const addData = await addRes.json().catch(() => ({}));
+            setPicnicError(addData.error?.message ?? addData.error ?? 'Toevoegen aan Picnic mislukt.');
+            break;
+          }
           setAddedIds((prev) => new Set([...prev, item.name]));
           onItemsChange(items.map((i) => (i.name === item.name ? { ...i, picnicArticle: article } : i)));
         }
@@ -114,6 +137,10 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
         </div>
       )}
 
+      {picnicError && (
+        <p className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">❌ {picnicError}</p>
+      )}
+
       {/* Shopping items */}
       {grouped.map((group) => (
         <div key={group.category}>
@@ -130,7 +157,8 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
                   )}
                   {item.picnicArticle && (
                     <p className="text-xs text-stone-400 truncate">
-                      ✓ {item.picnicArticle.name} — €{(item.picnicArticle.price / 100).toFixed(2)}
+                      ✓ Goedkoopste: {item.picnicArticle.name} — €{(item.picnicArticle.price / 100).toFixed(2)}
+                      {item.picnicArticle.unitQuantity ? ` · ${item.picnicArticle.unitQuantity}` : ''}
                     </p>
                   )}
                   {item.notFound && (

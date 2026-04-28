@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import RecipeCard from '@/components/RecipeCard';
 import ShoppingList from '@/components/ShoppingList';
 import type { MealPlan, ShoppingItem, AppSettings, PicnicPromotion } from '@/lib/types';
@@ -277,6 +278,9 @@ export default function PlanPage() {
               >
                 🔄 Opnieuw genereren
               </button>
+              <Link href="/overzicht" className="btn-secondary text-sm">
+                Overzicht
+              </Link>
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {plan.recipes.map((recipe, i) => (

@@ -5,6 +5,13 @@ import type { AppSettings } from '@/lib/types';
 import { DEFAULT_PANTRY } from '@/data/pantry';
 import { defaultSettings, normalizeSettings } from '@/lib/settings';
 import {
+  IMAGE_PROVIDERS,
+  getDefaultImageModel,
+  getImageProviderConfig,
+  type ImageProvider,
+  type OpenAIImageQuality,
+} from '@/lib/image-models';
+import {
   DEFAULT_MEAL_COUNT,
   DEFAULT_SERVINGS,
   LLM_PROVIDERS,
@@ -24,6 +31,9 @@ export default function SettingsPage() {
   const [loginError, setLoginError] = useState('');
   const [saved, setSaved] = useState(false);
   const [configStatus, setConfigStatus] = useState<ConfigStatus | null>(null);
+  const [picnic2faCode, setPicnic2faCode] = useState('');
+  const [pendingPicnicToken, setPendingPicnicToken] = useState('');
+  const [needsPicnic2fa, setNeedsPicnic2fa] = useState(false);
 
   useEffect(() => {
     loadPersistedSettings();
@@ -83,6 +93,17 @@ export default function SettingsPage() {
     });
     const data = await res.json();
     if (res.ok && data.authToken) {
+      if (data.secondFactorRequired) {
+        setPendingPicnicToken(data.authToken);
+        setNeedsPicnic2fa(true);
+        setLoginStatus('idle');
+        await fetch('/api/picnic/2fa/generate', {
+          method: 'POST',
+          headers: { 'x-picnic-auth': data.authToken },
+        });
+        return;
+      }
+
       const nextSettings = { ...settings, picnicAuthToken: data.authToken };
       setSettings(nextSettings);
       localStorage.setItem('helloPicknicSettings', JSON.stringify(nextSettings));
@@ -95,6 +116,36 @@ export default function SettingsPage() {
     } else {
       setLoginStatus('error');
       setLoginError(data.error ?? 'Inloggen mislukt');
+    }
+  }
+
+  async function verifyPicnic2fa() {
+    if (!pendingPicnicToken || !picnic2faCode) return;
+    setLoginStatus('loading');
+    setLoginError('');
+    const res = await fetch('/api/picnic/2fa/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-picnic-auth': pendingPicnicToken },
+      body: JSON.stringify({ code: picnic2faCode }),
+    });
+    const data = await res.json();
+
+    if (res.ok && data.authToken) {
+      const nextSettings = { ...settings, picnicAuthToken: data.authToken };
+      setSettings(nextSettings);
+      localStorage.setItem('helloPicknicSettings', JSON.stringify(nextSettings));
+      await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextSettings),
+      });
+      setNeedsPicnic2fa(false);
+      setPendingPicnicToken('');
+      setPicnic2faCode('');
+      setLoginStatus('ok');
+    } else {
+      setLoginStatus('error');
+      setLoginError(data.error ?? '2FA-code controleren mislukt');
     }
   }
 
@@ -133,7 +184,34 @@ export default function SettingsPage() {
     }));
   }
 
+  function setImageProvider(provider: ImageProvider) {
+    setSettings((prev) => {
+      const model = prev.imageModelsByProvider[provider] ?? getDefaultImageModel(provider);
+      return {
+        ...prev,
+        imageProvider: provider,
+        imageModel: model,
+        imageModelsByProvider: {
+          ...prev.imageModelsByProvider,
+          [provider]: model,
+        },
+      };
+    });
+  }
+
+  function setImageModel(model: string) {
+    setSettings((prev) => ({
+      ...prev,
+      imageModel: model,
+      imageModelsByProvider: {
+        ...prev.imageModelsByProvider,
+        [prev.imageProvider]: model,
+      },
+    }));
+  }
+
   const activeProvider = getProviderConfig(settings.llmProvider);
+  const activeImageProvider = getImageProviderConfig(settings.imageProvider);
   const hasServerApiKey = Boolean(configStatus?.llmApiKeys?.[activeProvider.id]);
   const hasPicnicEnvCredentials = Boolean(configStatus?.picnicCredentials);
 
@@ -214,6 +292,61 @@ export default function SettingsPage() {
         </label>
       </div>
 
+      {/* Image generation */}
+      <div className="card p-6 space-y-4">
+        <h2 className="font-bold text-stone-900 text-lg">🖼️ Beeldgeneratie</h2>
+        <p className="text-sm text-stone-500">
+          Kies het beeldmodel voor het 2x2 inspiratiebeeld op de overzichtspagina.
+        </p>
+
+        <label className="block">
+          <span className="text-sm font-semibold text-stone-700">Beeldaanbieder</span>
+          <select
+            value={settings.imageProvider}
+            onChange={(e) => setImageProvider(e.target.value as ImageProvider)}
+            className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+          >
+            {IMAGE_PROVIDERS.map((provider) => (
+              <option key={provider.id} value={provider.id}>{provider.label}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="text-sm font-semibold text-stone-700">Beeldmodel</span>
+          <select
+            value={settings.imageModel}
+            onChange={(e) => setImageModel(e.target.value)}
+            className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+          >
+            {activeImageProvider.models.map((model) => (
+              <option key={model.id} value={model.id}>{model.label}</option>
+            ))}
+          </select>
+        </label>
+
+        {activeImageProvider.models.find((model) => model.id === settings.imageModel)?.note && (
+          <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-4 py-2">
+            {activeImageProvider.models.find((model) => model.id === settings.imageModel)?.note}
+          </p>
+        )}
+
+        {settings.imageProvider === 'openai' && (
+          <label className="block">
+            <span className="text-sm font-semibold text-stone-700">OpenAI kwaliteit</span>
+            <select
+              value={settings.openaiImageQuality}
+              onChange={(e) => setSettings((p) => ({ ...p, openaiImageQuality: e.target.value as OpenAIImageQuality }))}
+              className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+            >
+              <option value="low">Low - goedkoopst</option>
+              <option value="medium">Medium</option>
+              <option value="high">High - duurst</option>
+            </select>
+          </label>
+        )}
+      </div>
+
       {/* Plan */}
       <div className="card p-6 space-y-4">
         <h2 className="font-bold text-stone-900 text-lg">🍽️ Weekplan</h2>
@@ -280,6 +413,29 @@ export default function SettingsPage() {
         >
           {loginStatus === 'loading' ? '⏳ Inloggen…' : '🔗 Verbinden met Picnic'}
         </button>
+
+        {needsPicnic2fa && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
+            <p className="text-sm font-semibold text-amber-800">Picnic vraagt om 2FA-verificatie.</p>
+            <label className="block">
+              <span className="text-sm font-semibold text-stone-700">SMS-code</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={picnic2faCode}
+                onChange={(e) => setPicnic2faCode(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+              />
+            </label>
+            <button
+              onClick={verifyPicnic2fa}
+              disabled={loginStatus === 'loading' || !picnic2faCode}
+              className="btn-secondary"
+            >
+              Code controleren
+            </button>
+          </div>
+        )}
 
         {hasPicnicEnvCredentials && (
           <p className="text-sm text-emerald-600">✓ Server-env heeft Picnic-inloggegevens.</p>

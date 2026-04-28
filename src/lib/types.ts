@@ -1,4 +1,5 @@
 import type { LlmProvider } from './llm';
+import type { ImageProvider, OpenAIImageQuality } from './image-models';
 
 export type RecipeType = 'vega' | 'vis';
 export type Difficulty = 'easy' | 'medium' | 'hard';
@@ -85,4 +86,16 @@ export interface AppSettings {
   picnicEmail: string;
   picnicPassword: string;
   pantryItems: string[]; // canonical names of pantry items the user has
+  imageProvider: ImageProvider;
+  imageModel: string;
+  imageModelsByProvider: Partial<Record<ImageProvider, string>>;
+  openaiImageQuality: OpenAIImageQuality;
+}
+
+export interface MealImageResult {
+  provider: 'openai' | 'gemini';
+  model: string;
+  quality?: OpenAIImageQuality;
+  prompt: string;
+  imageDataUrl: string;
 }

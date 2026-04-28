@@ -9,13 +9,20 @@ export async function POST(req: NextRequest) {
   const { articleId, count = 1 } = await req.json();
   if (!articleId) return NextResponse.json({ error: 'articleId verplicht' }, { status: 400 });
 
-  const res = await fetch(`${PICNIC_BASE}/cart/article`, {
+  const res = await fetch(`${PICNIC_BASE}/cart/add_product`, {
     method: 'POST',
     headers: authHeaders(token),
-    body: JSON.stringify({ article_id: articleId, count }),
+    body: JSON.stringify({ product_id: articleId, count }),
   });
 
-  const data = await res.json();
+  const text = await res.text();
+  const data = text ? (() => {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { detail: text };
+    }
+  })() : { ok: res.ok };
   return NextResponse.json(data, { status: res.ok ? 200 : res.status });
 }
 

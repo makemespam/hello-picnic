@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   const res = await fetch(`${PICNIC_BASE}/user/login`, {
     method: 'POST',
     headers: PICNIC_HEADERS,
-    body: JSON.stringify({ key: resolvedEmail, secret: md5(resolvedPassword), client_id: 1 }),
+    body: JSON.stringify({ key: resolvedEmail, secret: md5(resolvedPassword), client_id: 30100 }),
   });
 
   if (!res.ok) {
@@ -29,5 +29,10 @@ export async function POST(req: NextRequest) {
   const authToken = res.headers.get('x-picnic-auth');
   const data = await res.json();
 
-  return NextResponse.json({ authToken, userId: data?.user_id });
+  return NextResponse.json({
+    authToken,
+    userId: data?.user_id,
+    secondFactorRequired: Boolean(data?.second_factor_authentication_required),
+    showSecondFactorIntro: Boolean(data?.show_second_factor_authentication_intro),
+  });
 }

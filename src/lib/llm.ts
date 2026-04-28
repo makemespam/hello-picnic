@@ -24,9 +24,9 @@ export const LLM_PROVIDERS: LlmProviderOption[] = [
     docsUrl: 'https://console.anthropic.com',
     envKey: 'ANTHROPIC_API_KEY',
     models: [
-      { id: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku - snel & goedkoop' },
-      { id: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4 - aanbevolen' },
-      { id: 'claude-opus-4-1-20250805', label: 'Claude Opus 4.1 - slimst' },
+      { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 - snel & goedkoop' },
+      { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 - aanbevolen' },
+      { id: 'claude-opus-4-7', label: 'Claude Opus 4.7 - slimst, duurder' },
     ],
   },
   {
@@ -37,9 +37,9 @@ export const LLM_PROVIDERS: LlmProviderOption[] = [
     docsUrl: 'https://platform.openai.com/api-keys',
     envKey: 'OPENAI_API_KEY',
     models: [
-      { id: 'gpt-5-nano', label: 'GPT-5 nano - snel & goedkoop' },
-      { id: 'gpt-5-mini', label: 'GPT-5 mini - aanbevolen' },
-      { id: 'gpt-5.2', label: 'GPT-5.2 - slimst' },
+      { id: 'gpt-5.4-mini', label: 'GPT-5.4 mini - snel & goedkoper' },
+      { id: 'gpt-5.4', label: 'GPT-5.4 - aanbevolen all-rounder' },
+      { id: 'gpt-5.5', label: 'GPT-5.5 - slimst, duurder' },
     ],
   },
   {
@@ -50,9 +50,9 @@ export const LLM_PROVIDERS: LlmProviderOption[] = [
     docsUrl: 'https://aistudio.google.com/app/apikey',
     envKey: 'GEMINI_API_KEY',
     models: [
-      { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash-Lite - snel & goedkoop' },
-      { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash - aanbevolen' },
-      { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro - slimst' },
+      { id: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash-Lite Preview - goedkoop' },
+      { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview - aanbevolen' },
+      { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro Preview - planner' },
     ],
   },
 ];

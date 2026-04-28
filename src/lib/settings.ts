@@ -1,6 +1,15 @@
 import { DEFAULT_PANTRY_KEYS } from '@/data/pantry';
 import type { AppSettings } from '@/lib/types';
 import {
+  DEFAULT_IMAGE_PROVIDER,
+  DEFAULT_OPENAI_IMAGE_QUALITY,
+  getDefaultImageModel,
+  getImageProviderConfig,
+  getValidImageModel,
+  getValidOpenAIImageQuality,
+  type ImageProvider,
+} from '@/lib/image-models';
+import {
   DEFAULT_LLM_PROVIDER,
   DEFAULT_MEAL_COUNT,
   DEFAULT_SERVINGS,
@@ -26,6 +35,12 @@ export function defaultSettings(): AppSettings {
     picnicEmail: '',
     picnicPassword: '',
     pantryItems: DEFAULT_PANTRY_KEYS,
+    imageProvider: DEFAULT_IMAGE_PROVIDER,
+    imageModel: getDefaultImageModel(DEFAULT_IMAGE_PROVIDER),
+    imageModelsByProvider: {
+      [DEFAULT_IMAGE_PROVIDER]: getDefaultImageModel(DEFAULT_IMAGE_PROVIDER),
+    },
+    openaiImageQuality: DEFAULT_OPENAI_IMAGE_QUALITY,
   };
 }
 
@@ -38,6 +53,13 @@ export function normalizeSettings(value: Partial<AppSettings> | null | undefined
     ...value?.modelsByProvider,
   };
   const model = getValidModel(config.id, modelsByProvider[config.id] ?? value?.model);
+  const imageProvider = (value?.imageProvider ?? DEFAULT_IMAGE_PROVIDER) as ImageProvider;
+  const imageConfig = getImageProviderConfig(imageProvider);
+  const imageModelsByProvider = {
+    ...fallback.imageModelsByProvider,
+    ...value?.imageModelsByProvider,
+  };
+  const imageModel = getValidImageModel(imageConfig.id, imageModelsByProvider[imageConfig.id] ?? value?.imageModel);
 
   return {
     ...fallback,
@@ -54,5 +76,12 @@ export function normalizeSettings(value: Partial<AppSettings> | null | undefined
     servings: value?.servings ?? DEFAULT_SERVINGS,
     picnicPassword: value?.picnicPassword ?? '',
     pantryItems: value?.pantryItems?.length ? value.pantryItems : DEFAULT_PANTRY_KEYS,
+    imageProvider: imageConfig.id,
+    imageModel,
+    imageModelsByProvider: {
+      ...imageModelsByProvider,
+      [imageConfig.id]: imageModel,
+    },
+    openaiImageQuality: getValidOpenAIImageQuality(value?.openaiImageQuality),
   };
 }
