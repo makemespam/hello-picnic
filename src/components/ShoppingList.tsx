@@ -41,7 +41,7 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
     onItemsChange(
       items.map((i) => (i.name === item.name ? { ...i, searching: true } : i))
     );
-    const res = await fetch(`/api/picnic/search?q=${encodeURIComponent(item.display)}`, {
+    const res = await fetch(`/api/picnic/search?q=${encodeURIComponent(item.display)}&category=${encodeURIComponent(item.category)}&force=1`, {
       headers: { 'x-picnic-auth': picnicToken },
     });
     const data = await res.json();
@@ -83,7 +83,7 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
     for (const item of toBuy) {
       if (!item.picnicArticle) {
         // search first
-        const res = await fetch(`/api/picnic/search?q=${encodeURIComponent(item.display)}`, {
+        const res = await fetch(`/api/picnic/search?q=${encodeURIComponent(item.display)}&category=${encodeURIComponent(item.category)}&force=1`, {
           headers: { 'x-picnic-auth': picnicToken },
         });
         const data = await res.json();
