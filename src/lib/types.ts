@@ -12,6 +12,7 @@ export type IngredientCategory =
   | 'granen'
   | 'peulvruchten'
   | 'overig';
+export type ProductPreference = 'fresh' | 'frozen' | 'canned' | 'dried' | 'any';
 
 export interface Ingredient {
   name: string;         // canonical slug for pantry matching
@@ -19,6 +20,7 @@ export interface Ingredient {
   amount: number;
   unit: string;         // g, ml, stuks, el, tl, bos, teen, …
   category: IngredientCategory;
+  productPreference?: ProductPreference;
   pantry: boolean;      // already at home — excluded from shopping list
 }
 
@@ -54,9 +56,12 @@ export interface ShoppingItem {
   totalAmount: number;
   unit: string;
   category: IngredientCategory;
+  productPreference?: ProductPreference;
   pantry: boolean;
   recipeIds: string[];
   picnicArticle?: PicnicArticle;
+  picnicCandidates?: PicnicArticle[];
+  enabled?: boolean;
   searching?: boolean;
   notFound?: boolean;
 }

@@ -3,7 +3,7 @@ import { PICNIC_BASE, authHeaders, extractArticles } from '@/lib/picnic';
 import { getCachedPicnicSearch, savePicnicSearch } from '@/lib/picnic-product-cache';
 import { rankPicnicArticles } from '@/lib/picnic-product-selection';
 import { validatePicnicArticlesWithLlm } from '@/lib/picnic-llm-validator';
-import type { IngredientCategory } from '@/lib/types';
+import type { IngredientCategory, ProductPreference } from '@/lib/types';
 
 function cleanSearchTerm(term: string) {
   return term
@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
   const rawTerm = searchParams.get('q') ?? '';
   const term = cleanSearchTerm(rawTerm);
   const category = searchParams.get('category') as IngredientCategory | null;
+  const preference = searchParams.get('preference') as ProductPreference | null;
   const force = searchParams.get('force') === '1';
   const llmCheck = searchParams.get('llmCheck') === '1';
   const token = req.headers.get('x-picnic-auth');
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
 
   const cached = force ? null : await getCachedPicnicSearch(term, category);
   if (cached) {
-    const ranked = rankPicnicArticles(term, category, cached.articles);
+    const ranked = rankPicnicArticles(term, category, cached.articles, preference);
     return NextResponse.json({ articles: ranked.slice(0, 5), source: 'cache', updatedAt: cached.updatedAt });
   }
 
@@ -47,14 +48,14 @@ export async function GET(req: NextRequest) {
 
   const data = await res.json();
   const articles = extractArticles(data);
-  const ranked = rankPicnicArticles(term, category, articles);
+  const ranked = rankPicnicArticles(term, category, articles, preference);
   let selected = ranked.length > 0 ? ranked : [];
   let validationSource: 'rules' | 'llm' = 'rules';
   let llmSearchTerm: string | undefined;
 
   if (llmCheck || selected.length === 0 || selected.length < 3) {
     const candidates = selected.length > 0 ? selected : articles.slice(0, 8);
-    const validation = await validatePicnicArticlesWithLlm(term, category, candidates);
+    const validation = await validatePicnicArticlesWithLlm(term, category, preference, candidates);
     if (validation?.index !== null && validation?.index !== undefined && candidates[validation.index]) {
       const chosen = candidates[validation.index];
       selected = [chosen, ...selected.filter((article) => article.id !== chosen.id)];
@@ -68,8 +69,8 @@ export async function GET(req: NextRequest) {
       if (retry.ok) {
         const retryData = await retry.json();
         const retryArticles = extractArticles(retryData);
-        const retryRanked = rankPicnicArticles(llmSearchTerm, category, retryArticles);
-        const retryValidation = await validatePicnicArticlesWithLlm(term, category, retryRanked.length > 0 ? retryRanked : retryArticles.slice(0, 8));
+        const retryRanked = rankPicnicArticles(llmSearchTerm, category, retryArticles, preference);
+        const retryValidation = await validatePicnicArticlesWithLlm(term, category, preference, retryRanked.length > 0 ? retryRanked : retryArticles.slice(0, 8));
         if (retryValidation?.index !== null && retryValidation?.index !== undefined) {
           const candidates = retryRanked.length > 0 ? retryRanked : retryArticles;
           const chosen = candidates[retryValidation.index];

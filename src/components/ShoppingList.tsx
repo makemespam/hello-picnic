@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ShoppingItem, PicnicArticle } from '@/lib/types';
 
 const CATEGORY_ORDER = ['groenten', 'fruit', 'vis', 'zuivel', 'kruiden', 'granen', 'peulvruchten', 'overig'];
@@ -26,8 +26,21 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
   const [clearingCart, setClearingCart] = useState(false);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [picnicError, setPicnicError] = useState('');
+  const latestItemsRef = useRef(items);
+
+  useEffect(() => {
+    latestItemsRef.current = items;
+  }, [items]);
+
+  function updateItems(updater: (current: ShoppingItem[]) => ShoppingItem[]) {
+    const nextItems = updater(latestItemsRef.current);
+    latestItemsRef.current = nextItems;
+    onItemsChange(nextItems);
+    return nextItems;
+  }
 
   const toBuy = items.filter((i) => !i.pantry);
+  const selectedToBuy = toBuy.filter((i) => i.enabled !== false);
   const pantryItems = items.filter((i) => i.pantry);
 
   const grouped = CATEGORY_ORDER.map((cat) => ({
@@ -39,26 +52,54 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
   async function searchPicnic(item: ShoppingItem) {
     if (!picnicToken) return;
     setPicnicError('');
-    onItemsChange(
-      items.map((i) => (i.name === item.name ? { ...i, searching: true } : i))
-    );
-    const res = await fetch(`/api/picnic/search?q=${encodeURIComponent(item.display)}&category=${encodeURIComponent(item.category)}&force=1&llmCheck=1`, {
+    updateItems((current) => current.map((i) => (i.name === item.name ? { ...i, searching: true } : i)));
+    const res = await fetch(`/api/picnic/search?q=${encodeURIComponent(item.display)}&category=${encodeURIComponent(item.category)}&preference=${encodeURIComponent(item.productPreference ?? '')}&force=1&llmCheck=1`, {
       headers: { 'x-picnic-auth': picnicToken },
     });
     const data = await res.json();
     if (!res.ok || data.error) {
       setPicnicError(data.error ?? 'Zoeken bij Picnic mislukt.');
-      onItemsChange(items.map((i) => (i.name === item.name ? { ...i, searching: false, notFound: true } : i)));
+      updateItems((current) => current.map((i) => (i.name === item.name ? { ...i, searching: false, notFound: true } : i)));
       return;
     }
     const article: PicnicArticle | undefined = data.articles?.[0];
-    onItemsChange(
-      items.map((i) =>
-        i.name === item.name
-          ? { ...i, searching: false, picnicArticle: article, notFound: !article }
-          : i
-      )
-    );
+    const nextItems = updateItems((current) => current.map((i) => {
+      if (i.name !== item.name) return i;
+      const candidates = data.articles ?? [];
+      const existingSelection = i.picnicArticle && candidates.some((candidate: PicnicArticle) => candidate.id === i.picnicArticle?.id)
+        ? i.picnicArticle
+        : article;
+      return {
+        ...i,
+        searching: false,
+        picnicArticle: existingSelection,
+        picnicCandidates: candidates,
+        enabled: i.enabled !== false,
+        notFound: !existingSelection,
+      };
+    }));
+    return nextItems;
+  }
+
+  async function searchAllProducts() {
+    if (!picnicToken) return;
+    setAddingAll(true);
+    setPicnicError('');
+    for (const item of selectedToBuy) {
+      await searchPicnic(item);
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    setAddingAll(false);
+  }
+
+  function setItemEnabled(item: ShoppingItem, enabled: boolean) {
+    updateItems((current) => current.map((i) => i.name === item.name ? { ...i, enabled } : i));
+  }
+
+  function selectCandidate(item: ShoppingItem, articleId: string) {
+    const article = item.picnicCandidates?.find((candidate) => candidate.id === articleId);
+    if (!article) return;
+    updateItems((current) => current.map((i) => i.name === item.name ? { ...i, picnicArticle: article, enabled: true, notFound: false } : i));
   }
 
   async function addToCart(item: ShoppingItem) {
@@ -81,36 +122,10 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
     if (!picnicToken) return;
     setAddingAll(true);
     setPicnicError('');
-    for (const item of toBuy) {
-      if (!item.picnicArticle) {
-        // search first
-        const res = await fetch(`/api/picnic/search?q=${encodeURIComponent(item.display)}&category=${encodeURIComponent(item.category)}&force=1&llmCheck=1`, {
-          headers: { 'x-picnic-auth': picnicToken },
-        });
-        const data = await res.json();
-        if (!res.ok || data.error) {
-          setPicnicError(data.error ?? 'Zoeken bij Picnic mislukt.');
-          break;
-        }
-        const article: PicnicArticle | undefined = data.articles?.[0];
-        if (article) {
-          const addRes = await fetch('/api/picnic/cart', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-picnic-auth': picnicToken },
-            body: JSON.stringify({ articleId: article.id, count: 1 }),
-          });
-          if (!addRes.ok) {
-            const addData = await addRes.json().catch(() => ({}));
-            setPicnicError(addData.error?.message ?? addData.error ?? 'Toevoegen aan Picnic mislukt.');
-            break;
-          }
-          setAddedIds((prev) => new Set([...prev, item.name]));
-          onItemsChange(items.map((i) => (i.name === item.name ? { ...i, picnicArticle: article } : i)));
-        }
-        await new Promise((r) => setTimeout(r, 300)); // gentle rate limiting
-      } else {
-        await addToCart(item);
-      }
+    for (const item of selectedToBuy) {
+      if (!item.picnicArticle) continue;
+      await addToCart(item);
+      await new Promise((r) => setTimeout(r, 250));
     }
     setAddingAll(false);
   }
@@ -143,7 +158,7 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
           <div>
             <p className="font-semibold text-blue-900">Verbonden met Picnic</p>
             <p className="text-sm text-blue-700">
-              {addingAll ? 'Bezig met toevoegen...' : 'Voeg alle boodschappen in één klik toe aan je Picnic-mandje.'}
+              {addingAll ? 'Bezig...' : 'Zoek eerst Picnic-producten, pas keuzes aan, stuur daarna selectie naar je mandje.'}
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -155,11 +170,18 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
               {clearingCart ? 'Leegmaken...' : 'Mandje leegmaken'}
             </button>
             <button
-              onClick={searchAndAddAll}
+              onClick={searchAllProducts}
               disabled={addingAll || clearingCart}
+              className="btn-secondary whitespace-nowrap"
+            >
+              {addingAll ? 'Zoeken...' : 'Zoek producten'}
+            </button>
+            <button
+              onClick={searchAndAddAll}
+              disabled={addingAll || clearingCart || !selectedToBuy.some((item) => item.picnicArticle)}
               className="btn-primary bg-blue-600 hover:bg-blue-700 whitespace-nowrap"
             >
-              {addingAll ? '⏳ Bezig...' : '🛒 Alles naar Picnic'}
+              Naar mandje
             </button>
           </div>
         </div>
@@ -183,9 +205,33 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
                   {item.recipeIds.length > 1 && (
                     <p className="text-xs text-emerald-600">← gebruikt in {item.recipeIds.length} recepten</p>
                   )}
-                  {item.picnicArticle && (
+                  <label className="mt-2 flex items-center gap-2 text-xs text-stone-500">
+                    <input
+                      type="checkbox"
+                      checked={item.enabled !== false}
+                      onChange={(e) => setItemEnabled(item, e.target.checked)}
+                      className="h-4 w-4 rounded accent-orange-500"
+                    />
+                    meenemen naar Picnic
+                  </label>
+                  {item.picnicCandidates && item.picnicCandidates.length > 0 && (
+                    <select
+                      value={item.picnicArticle?.id ?? ''}
+                      onChange={(e) => selectCandidate(item, e.target.value)}
+                      disabled={item.enabled === false}
+                      className="mt-2 w-full rounded-lg border border-stone-200 px-3 py-1.5 text-xs text-stone-700 disabled:opacity-50"
+                    >
+                      {item.picnicCandidates.map((candidate) => (
+                        <option key={candidate.id} value={candidate.id}>
+                          {candidate.name} - €{(candidate.price / 100).toFixed(2)}
+                          {candidate.unitQuantity ? ` - ${candidate.unitQuantity}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {item.picnicArticle && !item.picnicCandidates?.length && (
                     <p className="text-xs text-stone-400 truncate">
-                      ✓ Goedkoopste: {item.picnicArticle.name} — €{(item.picnicArticle.price / 100).toFixed(2)}
+                      ✓ Geselecteerd: {item.picnicArticle.name} — €{(item.picnicArticle.price / 100).toFixed(2)}
                       {item.picnicArticle.unitQuantity ? ` · ${item.picnicArticle.unitQuantity}` : ''}
                     </p>
                   )}
@@ -205,7 +251,7 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
                         {item.searching ? '🔍…' : '🔍 Zoek'}
                       </button>
                     )}
-                    {item.picnicArticle && !addedIds.has(item.name) && (
+                    {item.picnicArticle && item.enabled !== false && !addedIds.has(item.name) && (
                       <button
                         onClick={() => addToCart(item)}
                         className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-200"

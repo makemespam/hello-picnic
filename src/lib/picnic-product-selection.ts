@@ -1,4 +1,4 @@
-import type { IngredientCategory, PicnicArticle } from '@/lib/types';
+import type { IngredientCategory, PicnicArticle, ProductPreference } from '@/lib/types';
 
 const STOPWORDS = new Set([
   'verse',
@@ -72,6 +72,20 @@ const GLOBAL_BAD_TERMS = [
   'limonade',
   'maaltijd',
 ];
+const NON_FRESH_TERMS = [
+  'diepvries',
+  'vriesvers',
+  'frozen',
+  'blik',
+  'pot',
+  'conserven',
+  'gebroken',
+  'à la crème',
+  'a la creme',
+  'gewokt',
+  'gesneden',
+  'mix',
+];
 
 function words(value: string) {
   return value
@@ -94,7 +108,12 @@ function hasRequiredTerm(name: string, term: string) {
   return name.includes(term);
 }
 
-function scoreArticle(query: string, category: IngredientCategory | null | undefined, article: PicnicArticle) {
+function scoreArticle(
+  query: string,
+  category: IngredientCategory | null | undefined,
+  preference: ProductPreference | null | undefined,
+  article: PicnicArticle
+) {
   const name = article.name.toLocaleLowerCase('nl-NL');
   const queryWords = words(query);
   const required = requiredTermsFor(query);
@@ -103,6 +122,16 @@ function scoreArticle(query: string, category: IngredientCategory | null | undef
   for (const bad of GLOBAL_BAD_TERMS) {
     if (name.includes(bad)) score -= 120;
   }
+
+  const effectivePreference = preference ?? (category === 'groenten' || category === 'fruit' ? 'fresh' : 'any');
+  if (effectivePreference === 'fresh') {
+    for (const term of NON_FRESH_TERMS) {
+      if (name.includes(term)) score -= 90;
+    }
+  }
+  if (effectivePreference === 'frozen' && (name.includes('diepvries') || name.includes('vriesvers'))) score += 40;
+  if (effectivePreference === 'canned' && (name.includes('blik') || name.includes('pot'))) score += 40;
+  if (effectivePreference === 'dried' && (name.includes('gedroogd') || name.includes('rijst') || name.includes('pasta'))) score += 30;
 
   const hasAnyRequired = required.some((term) => hasRequiredTerm(name, term));
   if (hasAnyRequired) score += 35;
@@ -138,10 +167,11 @@ function scoreArticle(query: string, category: IngredientCategory | null | undef
 export function rankPicnicArticles(
   query: string,
   category: IngredientCategory | null | undefined,
-  articles: PicnicArticle[]
+  articles: PicnicArticle[],
+  preference?: ProductPreference | null
 ) {
   return [...articles]
-    .map((article) => ({ article, score: scoreArticle(query, category, article) }))
+    .map((article) => ({ article, score: scoreArticle(query, category, preference, article) }))
     .filter(({ score }) => score > -40)
     .sort((a, b) => b.score - a.score || a.article.price - b.article.price)
     .map(({ article }) => article);

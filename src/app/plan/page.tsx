@@ -42,7 +42,9 @@ function buildShoppingList(plan: MealPlan, pantryItems: string[]): ShoppingItem[
           totalAmount: ing.amount,
           unit: ing.unit,
           category: ing.category,
+          productPreference: ing.productPreference ?? (ing.category === 'groenten' ? 'fresh' : undefined),
           pantry: isPantry,
+          enabled: true,
           recipeIds: [recipe.id],
         });
       }

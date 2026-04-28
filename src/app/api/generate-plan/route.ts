@@ -20,6 +20,9 @@ REGELS:
 - "type" is alleen "vega" of "vis"
 - "difficulty" is alleen "easy", "medium" of "hard"
 - "category" is alleen "groenten", "fruit", "zuivel", "vis", "kruiden", "granen", "peulvruchten" of "overig"
+- Voeg per ingredient "productPreference" toe: "fresh", "frozen", "canned", "dried" of "any"
+- Voor normale groenten is "productPreference": "fresh", tenzij je expliciet diepvries/blik/gedroogd bedoelt
+- Voor peulvruchten mag "canned" of "dried"; voor kokosmelk "any"; voor rijst/pasta "dried"
 - Gezond, gevarieerd en seizoensgebonden
 - Recepten zijn realistisch en smakelijk, in de stijl van Hello Fresh
 - Instructies in heldere, vriendelijke Nederlandse taal (jij-vorm)
@@ -57,6 +60,7 @@ Geef je antwoord als GELDIG JSON — geen markdown, geen extra tekst, alleen JSO
           "amount": 2,
           "unit": "stuks",
           "category": "groenten",
+          "productPreference": "fresh",
           "pantry": false
         }
       ],

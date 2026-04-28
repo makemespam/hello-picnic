@@ -1,4 +1,4 @@
-import type { IngredientCategory, PicnicArticle } from '@/lib/types';
+import type { IngredientCategory, PicnicArticle, ProductPreference } from '@/lib/types';
 import { readLocalSettings } from '@/lib/settings-store';
 
 interface ValidationResult {
@@ -21,14 +21,17 @@ function extractJson(text: string): string {
   return text;
 }
 
-function buildPrompt(query: string, category: IngredientCategory | null, articles: PicnicArticle[]) {
+function buildPrompt(query: string, category: IngredientCategory | null, preference: ProductPreference | null, articles: PicnicArticle[]) {
   return `Kies het beste Picnic-product voor een boodschappenlijst.
 
 Ingrediënt: ${query}
 Categorie: ${category ?? 'onbekend'}
+Productvoorkeur: ${preference ?? (category === 'groenten' ? 'fresh' : 'any')}
 
 Regels:
-- Focus op verse of pure producten.
+- Als productvoorkeur fresh is: kies verse groente/fruit, geen diepvries, blik, pot, gebroken, à la crème of kant-en-klaar.
+- Als productvoorkeur frozen/canned/dried is: die vorm mag juist wel.
+- Focus verder op pure producten.
 - Kies geen babyvoeding, schoonmaakmiddel, thee, limonade, saus, kant-en-klaarmaaltijd of gemengd product tenzij het ingrediënt zelf daarom vraagt.
 - Kies binnen passende producten liever de goedkoopste optie.
 - Als geen kandidaat passend is, geef index null en stel een betere korte zoekterm voor.
@@ -108,12 +111,13 @@ async function callAnthropic(apiKey: string, prompt: string) {
 export async function validatePicnicArticlesWithLlm(
   query: string,
   category: IngredientCategory | null,
+  preference: ProductPreference | null,
   articles: PicnicArticle[]
 ): Promise<ValidationResult | null> {
   if (articles.length === 0) return null;
 
   const settings = await readLocalSettings();
-  const prompt = buildPrompt(query, category, articles.slice(0, 8));
+  const prompt = buildPrompt(query, category, preference, articles.slice(0, 8));
   const geminiKey = usableKey(settings.geminiApiKey) || usableKey(process.env.GEMINI_API_KEY);
   const openAiKey = usableKey(settings.openaiApiKey) || usableKey(process.env.OPENAI_API_KEY);
   const anthropicKey = usableKey(settings.anthropicApiKey) || usableKey(process.env.ANTHROPIC_API_KEY);
