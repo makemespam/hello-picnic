@@ -25,6 +25,26 @@ type ConfigStatus = {
   picnicCredentials: boolean;
 };
 
+const RECIPE_TYPE_OPTIONS = [
+  { id: 'vegan', label: 'Vegan' },
+  { id: 'vegetarisch', label: 'Vegetarisch' },
+  { id: 'vis', label: 'Vis' },
+  { id: 'rund', label: 'Rund' },
+  { id: 'kip', label: 'Kip' },
+  { id: 'varken', label: 'Varken' },
+] as const;
+
+const MEAL_STYLE_OPTIONS = [
+  { id: 'luxe', label: 'Luxe' },
+  { id: 'gezin', label: 'Gezin' },
+  { id: 'fit', label: 'Fit' },
+  { id: 'makkelijk', label: 'Makkelijk' },
+  { id: 'snel', label: 'Snel' },
+  { id: 'budget', label: 'Budget' },
+  { id: 'wereldkeuken', label: 'Wereldkeuken' },
+  { id: 'comfort', label: 'Comfort' },
+] as const;
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<AppSettings>(defaultSettings());
   const [loginStatus, setLoginStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle');
@@ -156,6 +176,26 @@ export default function SettingsPage() {
         ? prev.pantryItems.filter((k) => k !== key)
         : [...prev.pantryItems, key],
     }));
+  }
+
+  function toggleRecipeType(type: AppSettings['enabledRecipeTypes'][number]) {
+    setSettings((prev) => {
+      const exists = prev.enabledRecipeTypes.includes(type);
+      const next = exists
+        ? prev.enabledRecipeTypes.filter((item) => item !== type)
+        : [...prev.enabledRecipeTypes, type];
+      return { ...prev, enabledRecipeTypes: next.length > 0 ? next : prev.enabledRecipeTypes };
+    });
+  }
+
+  function toggleMealStyle(style: AppSettings['enabledMealStyles'][number]) {
+    setSettings((prev) => {
+      const exists = prev.enabledMealStyles.includes(style);
+      const next = exists
+        ? prev.enabledMealStyles.filter((item) => item !== style)
+        : [...prev.enabledMealStyles, style];
+      return { ...prev, enabledMealStyles: next.length > 0 ? next : prev.enabledMealStyles };
+    });
   }
 
   function setProvider(provider: LlmProvider) {
@@ -476,6 +516,38 @@ export default function SettingsPage() {
       {/* Personal food rules */}
       <div className="card p-6 space-y-4">
         <h2 className="font-bold text-stone-900 text-lg">Persoonlijke voorkeuren</h2>
+        <div>
+          <p className="text-sm font-semibold text-stone-700">Basismaaltijden</p>
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {RECIPE_TYPE_OPTIONS.map((option) => (
+              <label key={option.id} className="flex items-center gap-2 rounded-lg border border-stone-100 px-3 py-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={settings.enabledRecipeTypes.includes(option.id)}
+                  onChange={() => toggleRecipeType(option.id)}
+                  className="h-4 w-4 rounded accent-orange-500"
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-stone-700">Maaltijdsoort</p>
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {MEAL_STYLE_OPTIONS.map((option) => (
+              <label key={option.id} className="flex items-center gap-2 rounded-lg border border-stone-100 px-3 py-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={settings.enabledMealStyles.includes(option.id)}
+                  onChange={() => toggleMealStyle(option.id)}
+                  className="h-4 w-4 rounded accent-orange-500"
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
+        </div>
         <label className="block">
           <span className="text-sm font-semibold text-stone-700">Allergieën en harde uitsluitingen</span>
           <textarea

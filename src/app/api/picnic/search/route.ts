@@ -14,6 +14,7 @@ function cleanSearchTerm(term: string) {
   if (/^wortel(en)?$/i.test(cleaned) || /\bwortel(en)?\b/i.test(cleaned)) return cleaned.replace(/\bwortel(en)?\b/gi, 'waspeen');
   if (/^eieren?$/i.test(cleaned) || /\beieren?\b/i.test(cleaned)) return 'eieren';
   if (/\bknoflook\b/i.test(cleaned)) return 'knoflook';
+  if (/\bgember\b/i.test(cleaned)) return 'gember';
   return cleaned;
 }
 

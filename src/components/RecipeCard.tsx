@@ -2,8 +2,23 @@ import Link from 'next/link';
 import type { Recipe } from '@/lib/types';
 
 const GRADIENTS: Record<string, string> = {
+  vegan: 'from-lime-50 to-emerald-100',
+  vegetarisch: 'from-emerald-50 to-green-100',
   vega: 'from-emerald-50 to-green-100',
   vis: 'from-blue-50 to-cyan-100',
+  rund: 'from-red-50 to-rose-100',
+  kip: 'from-amber-50 to-yellow-100',
+  varken: 'from-pink-50 to-rose-100',
+};
+
+const TYPE_LABEL: Record<string, string> = {
+  vegan: 'Vegan',
+  vegetarisch: 'Vegetarisch',
+  vega: 'Vega',
+  vis: 'Vis',
+  rund: 'Rund',
+  kip: 'Kip',
+  varken: 'Varken',
 };
 
 const DIFFICULTY_LABEL: Record<string, string> = {
@@ -24,7 +39,7 @@ export default function RecipeCard({ recipe, day, onApprove, onReplace, replacin
   return (
     <div className="card overflow-hidden flex flex-col">
       {/* Hero */}
-      <div className={`bg-gradient-to-br ${GRADIENTS[recipe.type]} flex items-center justify-center py-10 text-6xl`}>
+      <div className={`bg-gradient-to-br ${GRADIENTS[recipe.type] ?? 'from-stone-50 to-stone-100'} flex items-center justify-center py-10 text-6xl`}>
         {recipe.emoji}
       </div>
 
@@ -41,11 +56,9 @@ export default function RecipeCard({ recipe, day, onApprove, onReplace, replacin
               #{recipe.libraryNumber}
             </span>
           )}
-          {recipe.type === 'vega' ? (
-            <span className="badge-vega">🌿 Vega</span>
-          ) : (
-            <span className="badge-vis">🐟 Vis</span>
-          )}
+          <span className={recipe.type === 'vis' ? 'badge-vis' : 'badge-vega'}>
+            {TYPE_LABEL[recipe.type] ?? recipe.type}
+          </span>
           {recipe.usedPromotion && (
             <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-semibold text-yellow-800">
               🏷️ Aanbieding

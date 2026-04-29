@@ -11,6 +11,26 @@ const DIFFICULTY_LABEL: Record<string, string> = {
   hard: 'Uitdagend',
 };
 
+const GRADIENTS: Record<string, string> = {
+  vegan: 'bg-gradient-to-br from-lime-50 to-emerald-100',
+  vegetarisch: 'bg-gradient-to-br from-emerald-50 to-green-100',
+  vega: 'bg-gradient-to-br from-emerald-50 to-green-100',
+  vis: 'bg-gradient-to-br from-blue-50 to-cyan-100',
+  rund: 'bg-gradient-to-br from-red-50 to-rose-100',
+  kip: 'bg-gradient-to-br from-amber-50 to-yellow-100',
+  varken: 'bg-gradient-to-br from-pink-50 to-rose-100',
+};
+
+const TYPE_LABEL: Record<string, string> = {
+  vegan: 'Vegan',
+  vegetarisch: 'Vegetarisch',
+  vega: 'Vega',
+  vis: 'Vis',
+  rund: 'Rund',
+  kip: 'Kip',
+  varken: 'Varken',
+};
+
 export default function RecipePage() {
   const { id } = useParams<{ id: string }>();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
@@ -43,15 +63,13 @@ export default function RecipePage() {
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       {/* Hero */}
-      <div className={`rounded-3xl flex flex-col items-center justify-center gap-4 py-16 ${recipe.type === 'vega' ? 'bg-gradient-to-br from-emerald-50 to-green-100' : 'bg-gradient-to-br from-blue-50 to-cyan-100'}`}>
+      <div className={`rounded-3xl flex flex-col items-center justify-center gap-4 py-16 ${GRADIENTS[recipe.type] ?? 'bg-gradient-to-br from-stone-50 to-stone-100'}`}>
         <span className="text-8xl">{recipe.emoji}</span>
         <div className="text-center px-6">
           <div className="flex items-center justify-center gap-2 mb-2">
-            {recipe.type === 'vega' ? (
-              <span className="badge-vega">🌿 Vega</span>
-            ) : (
-              <span className="badge-vis">🐟 Vis</span>
-            )}
+            <span className={recipe.type === 'vis' ? 'badge-vis' : 'badge-vega'}>
+              {TYPE_LABEL[recipe.type] ?? recipe.type}
+            </span>
           </div>
           <h1 className="text-3xl font-extrabold text-stone-900">{recipe.title}</h1>
           <p className="mt-2 text-stone-600">{recipe.description}</p>

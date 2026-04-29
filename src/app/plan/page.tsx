@@ -87,6 +87,19 @@ function loadSavedPlan(): MealPlan | null {
   }
 }
 
+function buildLibrarySummaries(items: RecipeLibraryItem[]) {
+  return items
+    .filter((item) => item.status !== 'rejected')
+    .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || b.libraryNumber - a.libraryNumber)
+    .slice(0, 40)
+    .map((item) => {
+      const rating = item.rating ? `, ${item.rating}/5 sterren` : '';
+      const favorite = item.favorite ? ', favoriet' : '';
+      return `#${item.libraryNumber}: ${item.recipe.title} (${item.recipe.type}${rating}${favorite}) - ${item.recipe.description}`;
+    })
+    .join('\n');
+}
+
 export default function PlanPage() {
   const [preferences, setPreferences] = useState('');
   const [plan, setPlan] = useState<MealPlan | null>(null);
@@ -212,6 +225,9 @@ export default function PlanPage() {
         servings: settings?.servings ?? DEFAULT_SERVINGS,
         allergies: settings?.allergies ?? '',
         useUpProducts: settings?.useUpProducts ?? '',
+        enabledRecipeTypes: settings?.enabledRecipeTypes ?? ['vegetarisch', 'vis'],
+        enabledMealStyles: settings?.enabledMealStyles ?? ['makkelijk', 'fit', 'gezin'],
+        librarySummaries: buildLibrarySummaries(libraryItems),
       }),
     });
 
@@ -300,6 +316,9 @@ export default function PlanPage() {
         servings: settings?.servings ?? DEFAULT_SERVINGS,
         allergies: settings?.allergies ?? '',
         useUpProducts: settings?.useUpProducts ?? '',
+        enabledRecipeTypes: settings?.enabledRecipeTypes ?? ['vegetarisch', 'vis'],
+        enabledMealStyles: settings?.enabledMealStyles ?? ['makkelijk', 'fit', 'gezin'],
+        librarySummaries: buildLibrarySummaries(libraryItems),
       }),
     });
     const data = await res.json();

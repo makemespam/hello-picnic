@@ -4,6 +4,16 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import type { MealImageResult, MealPlan } from '@/lib/types';
 
+const TYPE_LABEL: Record<string, string> = {
+  vegan: 'Vegan',
+  vegetarisch: 'Vegetarisch',
+  vega: 'Vega',
+  vis: 'Vis',
+  rund: 'Rund',
+  kip: 'Kip',
+  varken: 'Varken',
+};
+
 function loadSavedPlan(): MealPlan | null {
   try {
     const raw = localStorage.getItem('helloPicknicPlan');
@@ -102,8 +112,8 @@ export default function OverviewPage() {
                 <p className="text-xs font-semibold uppercase text-stone-400">Maaltijd {index + 1}</p>
                 <h2 className="text-xl font-bold text-stone-900">{recipe.emoji} {recipe.title}</h2>
               </div>
-              <span className={recipe.type === 'vega' ? 'badge-vega' : 'badge-vis'}>
-                {recipe.type === 'vega' ? 'Vega' : 'Vis'}
+              <span className={recipe.type === 'vis' ? 'badge-vis' : 'badge-vega'}>
+                {TYPE_LABEL[recipe.type] ?? recipe.type}
               </span>
             </div>
 

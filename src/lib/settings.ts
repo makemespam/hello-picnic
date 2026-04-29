@@ -19,6 +19,17 @@ import {
   type LlmProvider,
 } from '@/lib/llm';
 
+const DEFAULT_RECIPE_TYPES = ['vegetarisch', 'vis'] as const;
+const VALID_RECIPE_TYPES = ['vegan', 'vegetarisch', 'vega', 'vis', 'rund', 'kip', 'varken'] as const;
+const DEFAULT_MEAL_STYLES = ['makkelijk', 'fit', 'gezin'] as const;
+const VALID_MEAL_STYLES = ['luxe', 'gezin', 'fit', 'makkelijk', 'snel', 'budget', 'wereldkeuken', 'comfort'] as const;
+
+function validList<T extends string>(value: readonly T[] | undefined, valid: readonly T[], fallback: readonly T[]) {
+  const set = new Set(valid);
+  const normalized = (value ?? []).filter((item): item is T => set.has(item));
+  return normalized.length > 0 ? normalized : [...fallback];
+}
+
 export function defaultSettings(): AppSettings {
   return {
     llmProvider: DEFAULT_LLM_PROVIDER,
@@ -37,6 +48,8 @@ export function defaultSettings(): AppSettings {
     pantryItems: DEFAULT_PANTRY_KEYS,
     allergies: '',
     useUpProducts: '',
+    enabledRecipeTypes: [...DEFAULT_RECIPE_TYPES],
+    enabledMealStyles: [...DEFAULT_MEAL_STYLES],
     imageProvider: DEFAULT_IMAGE_PROVIDER,
     imageModel: getDefaultImageModel(DEFAULT_IMAGE_PROVIDER),
     imageModelsByProvider: {
@@ -80,6 +93,8 @@ export function normalizeSettings(value: Partial<AppSettings> | null | undefined
     pantryItems: value?.pantryItems?.length ? value.pantryItems : DEFAULT_PANTRY_KEYS,
     allergies: value?.allergies ?? '',
     useUpProducts: value?.useUpProducts ?? '',
+    enabledRecipeTypes: validList(value?.enabledRecipeTypes, VALID_RECIPE_TYPES, DEFAULT_RECIPE_TYPES),
+    enabledMealStyles: validList(value?.enabledMealStyles, VALID_MEAL_STYLES, DEFAULT_MEAL_STYLES),
     imageProvider: imageConfig.id,
     imageModel,
     imageModelsByProvider: {

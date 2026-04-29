@@ -1,7 +1,8 @@
 import type { LlmProvider } from './llm';
 import type { ImageProvider, OpenAIImageQuality } from './image-models';
 
-export type RecipeType = 'vega' | 'vis';
+export type RecipeType = 'vegan' | 'vegetarisch' | 'vega' | 'vis' | 'rund' | 'kip' | 'varken';
+export type MealStylePreference = 'luxe' | 'gezin' | 'fit' | 'makkelijk' | 'snel' | 'budget' | 'wereldkeuken' | 'comfort';
 export type Difficulty = 'easy' | 'medium' | 'hard';
 export type IngredientCategory =
   | 'groenten'
@@ -99,6 +100,8 @@ export interface AppSettings {
   pantryItems: string[]; // canonical names of pantry items the user has
   allergies: string;
   useUpProducts: string;
+  enabledRecipeTypes: RecipeType[];
+  enabledMealStyles: MealStylePreference[];
   imageProvider: ImageProvider;
   imageModel: string;
   imageModelsByProvider: Partial<Record<ImageProvider, string>>;
@@ -118,6 +121,8 @@ export interface RecipeLibraryItem {
   libraryNumber: number;
   recipe: Recipe;
   status: 'pending' | 'approved' | 'rejected';
+  rating?: number;
+  favorite?: boolean;
   createdAt: string;
   updatedAt: string;
 }

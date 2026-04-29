@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
-import type { PicnicPromotion, MealPlan } from '@/lib/types';
+import type { PicnicPromotion, MealPlan, MealStylePreference, RecipeLibraryItem, RecipeType } from '@/lib/types';
 import {
   DEFAULT_LLM_PROVIDER,
   DEFAULT_MEAL_COUNT,
@@ -14,10 +14,11 @@ import { readLocalSettings } from '@/lib/settings-store';
 const SYSTEM_PROMPT = `Je bent een slimme Nederlandse maaltijdplanner. Je genereert {MEAL_COUNT} gezonde avondmaaltijden voor {SERVINGS} personen.
 
 REGELS:
-- Alleen vegetarisch of vis — geen vlees
+- Gebruik alleen deze toegestane basismaaltijden: {RECIPE_TYPES}
+- Gebruik vooral deze maaltijdsoorten/stijlen: {MEAL_STYLES}
 - Genereer exact {MEAL_COUNT} recepten
 - Elk recept heeft exact "servings": {SERVINGS}
-- "type" is alleen "vega" of "vis"
+- "type" is alleen een van de toegestane basismaaltijden; gebruik "vegetarisch" in plaats van "vega" voor nieuwe recepten
 - "difficulty" is alleen "easy", "medium" of "hard"
 - "category" is alleen "groenten", "fruit", "zuivel", "vis", "kruiden", "granen", "peulvruchten" of "overig"
 - Voeg per ingredient "productPreference" toe: "fresh", "frozen", "canned", "dried" of "any"
@@ -47,6 +48,9 @@ PRODUCTEN IN HUIS DIE OP MOETEN (verwerk waar logisch en zet pantry: true als he
 AANBIEDINGEN BIJ PICNIC DEZE WEEK (gebruik als het past, maar forceer niets):
 {PROMOTIONS}
 
+EERDER GEGENEREERDE MAALTIJDEN UIT DE BIBLIOTHEEK (korte context, niet herhalen):
+{LIBRARY_SUMMARIES}
+
 Geef je antwoord als GELDIG JSON — geen markdown, geen extra tekst, alleen JSON:
 {
   "recipes": [
@@ -54,7 +58,7 @@ Geef je antwoord als GELDIG JSON — geen markdown, geen extra tekst, alleen JSO
       "id": "unieke-kebab-slug",
       "title": "Receptnaam",
       "description": "Verleidelijke beschrijving van 1-2 zinnen",
-      "type": "vega",
+      "type": "vegetarisch",
       "emoji": "🍝",
       "time": 30,
       "difficulty": "easy",
@@ -98,7 +102,10 @@ function buildPrompt(
   mealCount: number,
   servings: number,
   allergies: string,
-  useUpProducts: string
+  useUpProducts: string,
+  recipeTypes: RecipeType[],
+  mealStyles: MealStylePreference[],
+  librarySummaries: string
 ) {
   const pantryList = pantryItems.length > 0
     ? pantryItems.join(', ')
@@ -111,16 +118,32 @@ function buildPrompt(
   const system = SYSTEM_PROMPT
     .replaceAll('{MEAL_COUNT}', String(mealCount))
     .replaceAll('{SERVINGS}', String(servings))
+    .replace('{RECIPE_TYPES}', recipeTypes.join(', '))
+    .replace('{MEAL_STYLES}', mealStyles.join(', '))
     .replace('{PANTRY_LIST}', pantryList)
     .replace('{ALLERGIES}', allergies.trim() || 'Geen opgegeven allergieën of harde uitsluitingen.')
     .replace('{USE_UP_PRODUCTS}', useUpProducts.trim() || 'Geen specifieke producten opgegeven.')
-    .replace('{PROMOTIONS}', promotionsList);
+    .replace('{PROMOTIONS}', promotionsList)
+    .replace('{LIBRARY_SUMMARIES}', librarySummaries.trim() || 'Nog geen bruikbare bibliotheekcontext.');
 
   const userMessage = preferences?.trim()
     ? `Genereer een weekplan met ${mealCount} maaltijden voor ${servings} personen. Mijn wensen: ${preferences}`
     : `Genereer een verrassend weekplan met ${mealCount} maaltijden voor ${servings} personen met gevarieerde, lekkere recepten.`;
 
   return { system, userMessage };
+}
+
+function buildLibrarySummaries(items: RecipeLibraryItem[]) {
+  return items
+    .filter((item) => item.status !== 'rejected')
+    .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || b.libraryNumber - a.libraryNumber)
+    .slice(0, 40)
+    .map((item) => {
+      const rating = item.rating ? `, ${item.rating}/5 sterren` : '';
+      const favorite = item.favorite ? ', favoriet' : '';
+      return `#${item.libraryNumber}: ${item.recipe.title} (${item.recipe.type}${rating}${favorite}) - ${item.recipe.description}`;
+    })
+    .join('\n');
 }
 
 function extractJson(text: string): string {
@@ -226,6 +249,9 @@ export async function POST(req: NextRequest) {
     servings: rawServings,
     allergies: rawAllergies,
     useUpProducts: rawUseUpProducts,
+    enabledRecipeTypes: rawRecipeTypes,
+    enabledMealStyles: rawMealStyles,
+    librarySummaries: rawLibrarySummaries,
   } = await req.json();
 
   const savedSettings = await readLocalSettings();
@@ -253,7 +279,14 @@ export async function POST(req: NextRequest) {
   const resolvedModel = process.env[modelEnvKey] || getValidModel(providerId, model ?? savedSettings.model);
   const allergies = typeof rawAllergies === 'string' ? rawAllergies : savedSettings.allergies;
   const useUpProducts = typeof rawUseUpProducts === 'string' ? rawUseUpProducts : savedSettings.useUpProducts;
-  const { system, userMessage } = buildPrompt(preferences, pantryItems ?? [], promotions ?? [], mealCount, servings, allergies, useUpProducts);
+  const recipeTypes = Array.isArray(rawRecipeTypes) && rawRecipeTypes.length > 0 ? rawRecipeTypes as RecipeType[] : savedSettings.enabledRecipeTypes;
+  const mealStyles = Array.isArray(rawMealStyles) && rawMealStyles.length > 0 ? rawMealStyles as MealStylePreference[] : savedSettings.enabledMealStyles;
+  const librarySummaries = typeof rawLibrarySummaries === 'string'
+    ? rawLibrarySummaries
+    : Array.isArray(rawLibrarySummaries)
+      ? buildLibrarySummaries(rawLibrarySummaries as RecipeLibraryItem[])
+      : '';
+  const { system, userMessage } = buildPrompt(preferences, pantryItems ?? [], promotions ?? [], mealCount, servings, allergies, useUpProducts, recipeTypes, mealStyles, librarySummaries);
 
   let text: string;
   try {

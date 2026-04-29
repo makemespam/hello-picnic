@@ -36,6 +36,7 @@ Regels:
 - Bij "rode paprika" moet het product rood zijn, niet geel/groen. Hetzelfde geldt voor andere expliciete kleuren.
 - Bij wortel/wortelen is "waspeen" een passende verse Picnic-term; kies geen potje of groentemix.
 - Bij knoflook kies je verse knoflook, geen knoflooksaus.
+- Bij gember kies je verse/pure gember, bijvoorbeeld "Bio gember"; geen gembershot, sap of gekoeld drankje.
 - Bij eieren kies je echte eieren, geen eiermie of noedels.
 - Kies binnen passende producten liever de goedkoopste optie.
 - Als geen kandidaat passend is, geef index null en stel een betere korte zoekterm voor.

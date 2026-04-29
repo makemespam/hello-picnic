@@ -50,6 +50,8 @@ export async function addRecipesToLibrary(recipes: Recipe[]) {
       libraryNumber: file.nextNumber,
       recipe,
       status: 'pending',
+      rating: 0,
+      favorite: false,
       createdAt: now,
       updatedAt: now,
     };
@@ -62,13 +64,31 @@ export async function addRecipesToLibrary(recipes: Recipe[]) {
   return saved;
 }
 
-export async function updateRecipeStatus(libraryId: string, status: RecipeLibraryItem['status']) {
+export async function updateRecipeLibraryItem(
+  libraryId: string,
+  updates: { status?: RecipeLibraryItem['status']; rating?: number; favorite?: boolean }
+) {
   const file = await readLibraryFile();
   const item = file.items.find((entry) => entry.libraryId === libraryId);
   if (!item) return null;
-  item.status = status;
+  if (updates.status) item.status = updates.status;
+  if (typeof updates.rating === 'number') item.rating = Math.min(5, Math.max(0, Math.round(updates.rating)));
+  if (typeof updates.favorite === 'boolean') item.favorite = updates.favorite;
   item.updatedAt = new Date().toISOString();
   item.recipe = withLibraryFields(item.recipe, item);
   await writeLibraryFile(file);
   return item;
+}
+
+export async function updateRecipeStatus(libraryId: string, status: RecipeLibraryItem['status']) {
+  return updateRecipeLibraryItem(libraryId, { status });
+}
+
+export async function deleteRecipeFromLibrary(libraryId: string) {
+  const file = await readLibraryFile();
+  const nextItems = file.items.filter((entry) => entry.libraryId !== libraryId);
+  if (nextItems.length === file.items.length) return false;
+  file.items = nextItems;
+  await writeLibraryFile(file);
+  return true;
 }

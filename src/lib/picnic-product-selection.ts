@@ -28,7 +28,7 @@ const BAD_BY_CATEGORY: Partial<Record<IngredientCategory, string[]>> = {
   groenten: ['saus', 'soep', 'spread', 'chips', 'mix', 'doperwten en wortelen', 'à la crème', 'a la creme', 'maaltijd', 'potje'],
   fruit: ['afwasmiddel', 'schoonmaak', 'zeep', 'limonade', 'siroop', 'toetje', 'yoghurt', 'thee'],
   zuivel: ['mie', 'noedels', 'saus', 'koek', 'snoep', 'verrassingssmaak'],
-  kruiden: ['saus', 'dressing', 'chips', 'soep', 'mix'],
+  kruiden: ['saus', 'dressing', 'chips', 'soep', 'mix', 'shot', 'sap', 'sinaas'],
   granen: ['pap', 'snack', 'koek'],
   peulvruchten: ['soep', 'chips', 'snack'],
   vis: ['maaltijd', 'aardappel', 'spinazie', 'saus', 'mosterdsaus'],
@@ -53,6 +53,7 @@ const REQUIRED_TERMS: Record<string, string[]> = {
   zoete: ['zoete aardappel', 'zoete aardappelen'],
   prei: ['prei'],
   doperwten: ['doperwten', 'erwten'],
+  gember: ['gember'],
   eieren: ['ei', 'eier', 'eieren'],
   ei: ['ei', 'eier', 'eieren'],
   kokosmelk: ['kokosmelk'],
@@ -84,6 +85,10 @@ const GLOBAL_BAD_TERMS = [
   'knoflooksaus',
   'eiermie',
   'eiernoedels',
+  'vitamineshot',
+  'gembershot',
+  'immunity',
+  'energy',
 ];
 const NON_FRESH_TERMS = [
   'diepvries',
@@ -175,6 +180,11 @@ function scoreArticle(
   if (query.toLocaleLowerCase('nl-NL').includes('knoflook')) {
     if (name === 'knoflook' || name.startsWith('knoflook ')) score += 90;
     if (name.includes('saus')) score -= 160;
+  }
+
+  if (query.toLocaleLowerCase('nl-NL').includes('gember')) {
+    if (name === 'gember' || name === 'bio gember' || name.endsWith(' gember')) score += 110;
+    if (name.includes('shot') || name.includes('sap') || name.includes('sinaas') || name.includes('gekoeld')) score -= 170;
   }
 
   if (query.toLocaleLowerCase('nl-NL').includes('ei') || query.toLocaleLowerCase('nl-NL').includes('eieren')) {
