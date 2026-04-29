@@ -256,14 +256,14 @@ export default function SettingsPage() {
   const hasPicnicEnvCredentials = Boolean(configStatus?.picnicCredentials);
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8">
+    <div className="max-w-2xl mx-auto flex flex-col gap-8">
       <div>
         <h1 className="text-3xl font-extrabold text-stone-900">Instellingen</h1>
         <p className="mt-1 text-stone-500">API-sleutels, Picnic-account en je kastinventaris.</p>
       </div>
 
       {/* LLM */}
-      <div className="card p-6 space-y-4">
+      <div className="card order-5 p-6 space-y-4">
         <h2 className="font-bold text-stone-900 text-lg">🤖 LLM-instellingen</h2>
         <p className="text-sm text-stone-500">
           Kies eerst je aanbieder en daarna het model. API-sleutels worden lokaal opgeslagen.
@@ -333,7 +333,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Image generation */}
-      <div className="card p-6 space-y-4">
+      <div className="card order-6 p-6 space-y-4">
         <h2 className="font-bold text-stone-900 text-lg">🖼️ Beeldgeneratie</h2>
         <p className="text-sm text-stone-500">
           Kies het beeldmodel voor het 2x2 inspiratiebeeld op de overzichtspagina.
@@ -388,7 +388,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Plan */}
-      <div className="card p-6 space-y-4">
+      <div className="card order-1 p-6 space-y-4">
         <h2 className="font-bold text-stone-900 text-lg">🍽️ Weekplan</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
@@ -417,7 +417,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Picnic */}
-      <div className="card p-6 space-y-4">
+      <div className="card order-4 p-6 space-y-4">
         <h2 className="font-bold text-stone-900 text-lg">🛒 Picnic-account</h2>
         <p className="text-sm text-stone-500">
           Log in met je Picnic-account om aanbiedingen op te halen en boodschappen toe te voegen aan je mandje.
@@ -451,7 +451,7 @@ export default function SettingsPage() {
           disabled={loginStatus === 'loading' || (!hasPicnicEnvCredentials && (!settings.picnicEmail || !settings.picnicPassword))}
           className="btn-secondary"
         >
-          {loginStatus === 'loading' ? '⏳ Inloggen…' : '🔗 Verbinden met Picnic'}
+          {loginStatus === 'loading' ? '⏳ Inloggen…' : settings.picnicAuthToken ? '✓ Verbonden met Picnic' : '🔗 Verbinden met Picnic'}
         </button>
 
         {needsPicnic2fa && (
@@ -493,7 +493,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Pantry */}
-      <div className="card p-6 space-y-4">
+      <div className="card order-3 p-6 space-y-4">
         <h2 className="font-bold text-stone-900 text-lg">🏠 Kastinventaris</h2>
         <p className="text-sm text-stone-500">
           Deze ingrediënten heb je altijd in huis. Ze worden niet op de boodschappenlijst gezet.
@@ -514,7 +514,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Personal food rules */}
-      <div className="card p-6 space-y-4">
+      <div className="card order-2 p-6 space-y-4">
         <h2 className="font-bold text-stone-900 text-lg">Persoonlijke voorkeuren</h2>
         <div>
           <p className="text-sm font-semibold text-stone-700">Basismaaltijden</p>
@@ -571,7 +571,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Save */}
-      <button onClick={save} className="btn-primary w-full justify-center py-3">
+      <button onClick={save} className="btn-primary order-7 w-full justify-center py-3">
         {saved ? '✓ Opgeslagen!' : '💾 Instellingen opslaan'}
       </button>
     </div>
