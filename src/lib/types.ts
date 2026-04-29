@@ -61,6 +61,9 @@ export interface ShoppingItem {
   recipeIds: string[];
   picnicArticle?: PicnicArticle;
   picnicCandidates?: PicnicArticle[];
+  picnicCount?: number;
+  picnicCoverage?: string;
+  picnicWarning?: string;
   enabled?: boolean;
   searching?: boolean;
   notFound?: boolean;

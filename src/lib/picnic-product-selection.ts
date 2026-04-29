@@ -11,6 +11,7 @@ const STOPWORDS = new Set([
   'stuk',
   'stuks',
   'stronk',
+  'plakken',
   'tenen',
   'teen',
   'bos',
@@ -24,7 +25,7 @@ const STOPWORDS = new Set([
 ]);
 
 const BAD_BY_CATEGORY: Partial<Record<IngredientCategory, string[]>> = {
-  groenten: ['saus', 'soep', 'spread', 'chips', 'mix', 'doperwten en wortelen', 'à la crème', 'a la creme', 'maaltijd'],
+  groenten: ['saus', 'soep', 'spread', 'chips', 'mix', 'doperwten en wortelen', 'à la crème', 'a la creme', 'maaltijd', 'potje'],
   fruit: ['afwasmiddel', 'schoonmaak', 'zeep', 'limonade', 'siroop', 'toetje', 'yoghurt', 'thee'],
   zuivel: ['mie', 'noedels', 'saus', 'koek', 'snoep', 'verrassingssmaak'],
   kruiden: ['saus', 'dressing', 'chips', 'soep', 'mix'],
@@ -42,10 +43,13 @@ const REQUIRED_TERMS: Record<string, string[]> = {
   knoflook: ['knoflook'],
   courgette: ['courgette'],
   aubergine: ['aubergine'],
+  paprika: ['paprika'],
   broccoli: ['broccoli'],
   paksoi: ['paksoi'],
   spinazie: ['spinazie'],
-  wortel: ['wortel', 'wortelen'],
+  wortel: ['wortel', 'wortelen', 'waspeen', 'peen'],
+  wortelen: ['wortel', 'wortelen', 'waspeen', 'peen'],
+  waspeen: ['wortel', 'wortelen', 'waspeen', 'peen'],
   zoete: ['zoete aardappel', 'zoete aardappelen'],
   prei: ['prei'],
   doperwten: ['doperwten', 'erwten'],
@@ -60,6 +64,12 @@ const REQUIRED_TERMS: Record<string, string[]> = {
 };
 
 const COLOR_TERMS = ['rode', 'rood', 'gele', 'geel', 'groene', 'groen', 'witte', 'wit'];
+const COLOR_GROUPS: Record<string, string[]> = {
+  rood: ['rode', 'rood'],
+  geel: ['gele', 'geel'],
+  groen: ['groene', 'groen'],
+  wit: ['witte', 'wit'],
+};
 const GLOBAL_BAD_TERMS = [
   'baby',
   'olvarit',
@@ -71,6 +81,9 @@ const GLOBAL_BAD_TERMS = [
   'thee',
   'limonade',
   'maaltijd',
+  'knoflooksaus',
+  'eiermie',
+  'eiernoedels',
 ];
 const NON_FRESH_TERMS = [
   'diepvries',
@@ -147,13 +160,26 @@ function scoreArticle(
 
   const queryColor = COLOR_TERMS.find((color) => query.toLocaleLowerCase('nl-NL').includes(color));
   if (queryColor) {
-    const colorRoot = queryColor.slice(0, 3);
-    if (name.includes(colorRoot)) score += 25;
-    else score -= 35;
+    const group = Object.entries(COLOR_GROUPS).find(([, values]) => values.includes(queryColor));
+    const wanted = group?.[1] ?? [queryColor];
+    const otherColors = Object.values(COLOR_GROUPS).flat().filter((color) => !wanted.includes(color));
+    if (wanted.some((color) => name.includes(color))) score += 70;
+    if (otherColors.some((color) => name.includes(color))) score -= 90;
+    else if (!wanted.some((color) => name.includes(color))) score -= 45;
   }
 
   if (query.toLocaleLowerCase('nl-NL').includes('ui') && name.includes('rode') && !query.toLocaleLowerCase('nl-NL').includes('rode')) {
     score -= 20;
+  }
+
+  if (query.toLocaleLowerCase('nl-NL').includes('knoflook')) {
+    if (name === 'knoflook' || name.startsWith('knoflook ')) score += 90;
+    if (name.includes('saus')) score -= 160;
+  }
+
+  if (query.toLocaleLowerCase('nl-NL').includes('ei') || query.toLocaleLowerCase('nl-NL').includes('eieren')) {
+    if (name.includes('eiermie') || name.includes('eiernoedels')) score -= 180;
+    if (name.includes('vrije uitloop') || name.includes('scharrel') || name.includes('eieren')) score += 60;
   }
 
   for (const bad of BAD_BY_CATEGORY[category ?? 'overig'] ?? []) {

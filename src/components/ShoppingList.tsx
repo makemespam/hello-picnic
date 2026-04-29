@@ -15,6 +15,65 @@ const CATEGORY_LABEL: Record<string, string> = {
   overig: '🛒 Overig',
 };
 
+type PackageUnit = 'g' | 'ml' | 'stuks';
+
+function recipeAmountInComparableUnit(item: ShoppingItem): { amount: number; unit: PackageUnit } | null {
+  const unit = item.unit.toLocaleLowerCase('nl-NL');
+  if (['g', 'gram', 'gr'].includes(unit)) return { amount: item.totalAmount, unit: 'g' };
+  if (['kg', 'kilo'].includes(unit)) return { amount: item.totalAmount * 1000, unit: 'g' };
+  if (['ml', 'milliliter'].includes(unit)) return { amount: item.totalAmount, unit: 'ml' };
+  if (['l', 'liter'].includes(unit)) return { amount: item.totalAmount * 1000, unit: 'ml' };
+  if (['stuk', 'stuks', 'stronk', 'bos', 'plak', 'plakken'].includes(unit)) return { amount: item.totalAmount, unit: 'stuks' };
+  return null;
+}
+
+function parsePackageAmount(unitQuantity: string | undefined, desiredUnit?: PackageUnit): { amount: number; unit: PackageUnit; label: string } | null {
+  if (!unitQuantity) return null;
+  const lower = unitQuantity.toLocaleLowerCase('nl-NL').replace(',', '.');
+  const patterns: Array<[RegExp, PackageUnit, number]> = [
+    [/(\d+(?:\.\d+)?)\s*(?:kg|kilo)\b/, 'g', 1000],
+    [/(\d+(?:\.\d+)?)\s*(?:g|gram|gr)\b/, 'g', 1],
+    [/(\d+(?:\.\d+)?)\s*(?:l|liter)\b/, 'ml', 1000],
+    [/(\d+(?:\.\d+)?)\s*(?:ml|milliliter)\b/, 'ml', 1],
+    [/(\d+(?:\.\d+)?)\s*(?:stuk|stuks)\b/, 'stuks', 1],
+  ];
+  const matches: Array<{ amount: number; unit: PackageUnit; label: string }> = [];
+  for (const [pattern, unit, multiplier] of patterns) {
+    const match = lower.match(pattern);
+    if (match) matches.push({ amount: Number(match[1]) * multiplier, unit, label: unitQuantity });
+  }
+  if (matches.length > 0) return matches.find((match) => match.unit === desiredUnit) ?? matches[0];
+  if (/\b1\s*stuk\b/.test(lower) || /\bstuk\b/.test(lower)) return { amount: 1, unit: 'stuks', label: unitQuantity };
+  return null;
+}
+
+function packagePlanFor(item: ShoppingItem, article: PicnicArticle) {
+  const needed = recipeAmountInComparableUnit(item);
+  const pack = parsePackageAmount(article.unitQuantity, needed?.unit);
+  if (!needed || !pack || needed.unit !== pack.unit || pack.amount <= 0) {
+    return {
+      picnicArticle: article,
+      picnicCount: 1,
+      picnicCoverage: article.unitQuantity ? `1 x ${article.unitQuantity}` : undefined,
+      picnicWarning: undefined,
+    };
+  }
+
+  const count = pack.amount >= needed.amount * 0.8 ? 1 : Math.ceil(needed.amount / pack.amount);
+  const supplied = count * pack.amount;
+  const overshootRatio = supplied / needed.amount;
+  const warning = overshootRatio > 2
+    ? `Let op: ${count} verpakkingen is ruim meer dan nodig (${Math.round(overshootRatio * 10) / 10}x).`
+    : undefined;
+
+  return {
+    picnicArticle: article,
+    picnicCount: Math.max(1, count),
+    picnicCoverage: `${Math.max(1, count)} x ${pack.label}`,
+    picnicWarning: warning,
+  };
+}
+
 interface Props {
   items: ShoppingItem[];
   picnicToken: string | null;
@@ -62,17 +121,18 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
       updateItems((current) => current.map((i) => (i.name === item.name ? { ...i, searching: false, notFound: true } : i)));
       return;
     }
-    const article: PicnicArticle | undefined = data.articles?.[0];
     const nextItems = updateItems((current) => current.map((i) => {
       if (i.name !== item.name) return i;
       const candidates = data.articles ?? [];
+      const article: PicnicArticle | undefined = candidates[0];
       const existingSelection = i.picnicArticle && candidates.some((candidate: PicnicArticle) => candidate.id === i.picnicArticle?.id)
         ? i.picnicArticle
         : article;
+      const packagePlan = existingSelection ? packagePlanFor(i, existingSelection) : {};
       return {
         ...i,
         searching: false,
-        picnicArticle: existingSelection,
+        ...packagePlan,
         picnicCandidates: candidates,
         enabled: i.enabled !== false,
         notFound: !existingSelection,
@@ -99,7 +159,7 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
   function selectCandidate(item: ShoppingItem, articleId: string) {
     const article = item.picnicCandidates?.find((candidate) => candidate.id === articleId);
     if (!article) return;
-    updateItems((current) => current.map((i) => i.name === item.name ? { ...i, picnicArticle: article, enabled: true, notFound: false } : i));
+    updateItems((current) => current.map((i) => i.name === item.name ? { ...i, ...packagePlanFor(i, article), enabled: true, notFound: false } : i));
   }
 
   async function addToCart(item: ShoppingItem) {
@@ -108,7 +168,7 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
     const res = await fetch('/api/picnic/cart', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-picnic-auth': picnicToken },
-      body: JSON.stringify({ articleId: item.picnicArticle.id, count: 1 }),
+      body: JSON.stringify({ articleId: item.picnicArticle.id, count: item.picnicCount ?? 1 }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -229,6 +289,14 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
                       ))}
                     </select>
                   )}
+                  {item.picnicCoverage && (
+                    <p className="mt-1 text-xs text-stone-400">
+                      Aantal: {item.picnicCoverage}
+                    </p>
+                  )}
+                  {item.picnicWarning && (
+                    <p className="mt-1 text-xs text-amber-600">{item.picnicWarning}</p>
+                  )}
                   {item.picnicArticle && !item.picnicCandidates?.length && (
                     <p className="text-xs text-stone-400 truncate">
                       ✓ Geselecteerd: {item.picnicArticle.name} — €{(item.picnicArticle.price / 100).toFixed(2)}
@@ -256,7 +324,7 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
                         onClick={() => addToCart(item)}
                         className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-200"
                       >
-                        + Voeg toe
+                        + Voeg {item.picnicCount && item.picnicCount > 1 ? `${item.picnicCount} toe` : 'toe'}
                       </button>
                     )}
                     {addedIds.has(item.name) && (

@@ -6,11 +6,15 @@ import { validatePicnicArticlesWithLlm } from '@/lib/picnic-llm-validator';
 import type { IngredientCategory, ProductPreference } from '@/lib/types';
 
 function cleanSearchTerm(term: string) {
-  return term
+  const cleaned = term
     .replace(/\([^)]*\)/g, ' ')
     .replace(/\b(vers|verse|blik|diepvries|naturel|vastkokend|vastkokende)\b/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+  if (/^wortel(en)?$/i.test(cleaned) || /\bwortel(en)?\b/i.test(cleaned)) return cleaned.replace(/\bwortel(en)?\b/gi, 'waspeen');
+  if (/^eieren?$/i.test(cleaned) || /\beieren?\b/i.test(cleaned)) return 'eieren';
+  if (/\bknoflook\b/i.test(cleaned)) return 'knoflook';
+  return cleaned;
 }
 
 export async function GET(req: NextRequest) {
@@ -26,7 +30,7 @@ export async function GET(req: NextRequest) {
   if (!token) return NextResponse.json({ error: 'Niet ingelogd bij Picnic' }, { status: 401 });
   if (!term) return NextResponse.json({ articles: [] });
 
-  const cached = force ? null : await getCachedPicnicSearch(term, category);
+  const cached = force ? null : await getCachedPicnicSearch(term, category, preference);
   if (cached) {
     const ranked = rankPicnicArticles(term, category, cached.articles, preference);
     return NextResponse.json({ articles: ranked.slice(0, 5), source: 'cache', updatedAt: cached.updatedAt });
@@ -85,7 +89,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const cachedSearch = await savePicnicSearch(term, selected, category);
+  const cachedSearch = await savePicnicSearch(term, selected, category, preference);
 
   return NextResponse.json({
     articles: cachedSearch.articles.slice(0, 5),

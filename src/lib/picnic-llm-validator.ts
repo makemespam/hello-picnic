@@ -33,6 +33,10 @@ Regels:
 - Als productvoorkeur frozen/canned/dried is: die vorm mag juist wel.
 - Focus verder op pure producten.
 - Kies geen babyvoeding, schoonmaakmiddel, thee, limonade, saus, kant-en-klaarmaaltijd of gemengd product tenzij het ingrediënt zelf daarom vraagt.
+- Bij "rode paprika" moet het product rood zijn, niet geel/groen. Hetzelfde geldt voor andere expliciete kleuren.
+- Bij wortel/wortelen is "waspeen" een passende verse Picnic-term; kies geen potje of groentemix.
+- Bij knoflook kies je verse knoflook, geen knoflooksaus.
+- Bij eieren kies je echte eieren, geen eiermie of noedels.
 - Kies binnen passende producten liever de goedkoopste optie.
 - Als geen kandidaat passend is, geef index null en stel een betere korte zoekterm voor.
 

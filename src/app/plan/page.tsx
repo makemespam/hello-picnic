@@ -22,22 +22,34 @@ type ConfigStatus = {
 };
 
 function buildShoppingList(plan: MealPlan, pantryItems: string[]): ShoppingItem[] {
-  const pantrySet = new Set(pantryItems);
+  const normalizeIngredientKey = (value: string) => {
+    const normalized = value
+      .trim()
+      .toLocaleLowerCase('nl-NL')
+      .replace(/[^a-z0-9à-ÿ]+/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (normalized === 'ei' || normalized === 'eieren') return 'eieren';
+    if (normalized === 'wortel' || normalized === 'wortelen' || normalized === 'waspeen') return 'wortelen';
+    return normalized;
+  };
+  const pantrySet = new Set(pantryItems.map(normalizeIngredientKey));
   const map = new Map<string, ShoppingItem>();
 
   for (const recipe of plan.recipes) {
     for (const ing of recipe.ingredients) {
-      const isPantry = ing.pantry || pantrySet.has(ing.name);
-      const existing = map.get(ing.name);
+      const key = normalizeIngredientKey(ing.name || ing.display);
+      const isPantry = ing.pantry || pantrySet.has(key);
+      const existing = map.get(key);
       if (existing) {
         // merge if same unit, otherwise keep separate entries
-        if (existing.unit === ing.unit) {
+        if (existing.unit.toLocaleLowerCase('nl-NL') === ing.unit.toLocaleLowerCase('nl-NL')) {
           existing.totalAmount = Math.round((existing.totalAmount + ing.amount) * 10) / 10;
         }
         if (!existing.recipeIds.includes(recipe.id)) existing.recipeIds.push(recipe.id);
       } else {
-        map.set(ing.name, {
-          name: ing.name,
+        map.set(key, {
+          name: key,
           display: ing.display,
           totalAmount: ing.amount,
           unit: ing.unit,
