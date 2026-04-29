@@ -473,6 +473,31 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Personal food rules */}
+      <div className="card p-6 space-y-4">
+        <h2 className="font-bold text-stone-900 text-lg">Persoonlijke voorkeuren</h2>
+        <label className="block">
+          <span className="text-sm font-semibold text-stone-700">Allergieën en harde uitsluitingen</span>
+          <textarea
+            value={settings.allergies}
+            onChange={(e) => setSettings((p) => ({ ...p, allergies: e.target.value }))}
+            placeholder="Bijv. pinda, schaaldieren, lactose, geen aubergine..."
+            rows={3}
+            className="mt-1 w-full resize-none rounded-xl border border-stone-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+          />
+        </label>
+        <label className="block">
+          <span className="text-sm font-semibold text-stone-700">Producten in huis die op moeten</span>
+          <textarea
+            value={settings.useUpProducts}
+            onChange={(e) => setSettings((p) => ({ ...p, useUpProducts: e.target.value }))}
+            placeholder="Bijv. halve zak spinazie, 3 wortels, feta, geopende kokosmelk..."
+            rows={3}
+            className="mt-1 w-full resize-none rounded-xl border border-stone-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+          />
+        </label>
+      </div>
+
       {/* Save */}
       <button onClick={save} className="btn-primary w-full justify-center py-3">
         {saved ? '✓ Opgeslagen!' : '💾 Instellingen opslaan'}

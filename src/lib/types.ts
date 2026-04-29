@@ -94,6 +94,8 @@ export interface AppSettings {
   picnicEmail: string;
   picnicPassword: string;
   pantryItems: string[]; // canonical names of pantry items the user has
+  allergies: string;
+  useUpProducts: string;
   imageProvider: ImageProvider;
   imageModel: string;
   imageModelsByProvider: Partial<Record<ImageProvider, string>>;

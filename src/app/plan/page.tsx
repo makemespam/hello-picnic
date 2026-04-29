@@ -86,6 +86,8 @@ export default function PlanPage() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [configStatus, setConfigStatus] = useState<ConfigStatus | null>(null);
   const [replacingRecipeId, setReplacingRecipeId] = useState<string | null>(null);
+  const [libraryItems, setLibraryItems] = useState<RecipeLibraryItem[]>([]);
+  const [selectedLibraryIds, setSelectedLibraryIds] = useState<string[]>([]);
 
   const fetchConfigStatus = useCallback(async () => {
     try {
@@ -109,6 +111,16 @@ export default function PlanPage() {
       /* silent - promotions are optional */
     } finally {
       setLoadingPromos(false);
+    }
+  }, []);
+
+  const fetchLibrary = useCallback(async () => {
+    try {
+      const res = await fetch('/api/recipe-library');
+      const data = await res.json();
+      setLibraryItems(data.items ?? []);
+    } catch {
+      setLibraryItems([]);
     }
   }, []);
 
@@ -139,13 +151,36 @@ export default function PlanPage() {
 
     loadAppSettings();
     fetchConfigStatus();
-  }, [fetchConfigStatus, fetchPromotions]);
+    fetchLibrary();
+  }, [fetchConfigStatus, fetchLibrary, fetchPromotions]);
 
   async function generate() {
     setLoading(true);
     setError('');
 
     const pantryItems = settings?.pantryItems ?? DEFAULT_PANTRY_KEYS;
+    const mealTarget = settings?.mealCount ?? DEFAULT_MEAL_COUNT;
+    const selectedLibraryRecipes = selectedLibraryIds
+      .map((libraryId) => libraryItems.find((item) => item.libraryId === libraryId)?.recipe)
+      .filter((recipe): recipe is Recipe => Boolean(recipe))
+      .slice(0, mealTarget);
+    const newMealCount = Math.max(0, mealTarget - selectedLibraryRecipes.length);
+
+    if (newMealCount === 0) {
+      const nextPlan: MealPlan = {
+        recipes: selectedLibraryRecipes,
+        rationale: 'Deze selectie bestaat volledig uit eerder opgeslagen maaltijden uit je bibliotheek.',
+        generatedAt: new Date().toISOString(),
+        preferences,
+        mealCount: selectedLibraryRecipes.length,
+        servings: settings?.servings ?? DEFAULT_SERVINGS,
+      };
+      setPlan(nextPlan);
+      localStorage.setItem('helloPicknicPlan', JSON.stringify(nextPlan));
+      setShoppingItems(buildShoppingList(nextPlan, pantryItems));
+      setLoading(false);
+      return;
+    }
 
     const res = await fetch('/api/generate-plan', {
       method: 'POST',
@@ -161,8 +196,10 @@ export default function PlanPage() {
           gemini: settings?.geminiApiKey ?? '',
         },
         model: settings?.model ?? getDefaultModel(DEFAULT_LLM_PROVIDER),
-        mealCount: settings?.mealCount ?? DEFAULT_MEAL_COUNT,
+        mealCount: newMealCount,
         servings: settings?.servings ?? DEFAULT_SERVINGS,
+        allergies: settings?.allergies ?? '',
+        useUpProducts: settings?.useUpProducts ?? '',
       }),
     });
 
@@ -176,11 +213,20 @@ export default function PlanPage() {
 
     let newPlan: MealPlan = data.plan;
     newPlan = await saveRecipesToLibrary(newPlan);
+    if (selectedLibraryRecipes.length > 0) {
+      newPlan = {
+        ...newPlan,
+        recipes: [...selectedLibraryRecipes, ...newPlan.recipes],
+        mealCount: selectedLibraryRecipes.length + newPlan.recipes.length,
+        rationale: `Eerder gekozen uit je bibliotheek: ${selectedLibraryRecipes.map((recipe) => recipe.title).join(', ')}. ${newPlan.rationale}`,
+      };
+    }
     setPlan(newPlan);
     localStorage.setItem('helloPicknicPlan', JSON.stringify(newPlan));
 
     const items = buildShoppingList(newPlan, pantryItems);
     setShoppingItems(items);
+    fetchLibrary();
     setLoading(false);
   }
 
@@ -240,6 +286,8 @@ export default function PlanPage() {
         model: settings?.model ?? getDefaultModel(DEFAULT_LLM_PROVIDER),
         mealCount: 1,
         servings: settings?.servings ?? DEFAULT_SERVINGS,
+        allergies: settings?.allergies ?? '',
+        useUpProducts: settings?.useUpProducts ?? '',
       }),
     });
     const data = await res.json();
@@ -258,6 +306,7 @@ export default function PlanPage() {
     setPlan(nextPlan);
     localStorage.setItem('helloPicknicPlan', JSON.stringify(nextPlan));
     setShoppingItems(buildShoppingList(nextPlan, pantryItems));
+    fetchLibrary();
     setReplacingRecipeId(null);
   }
 
@@ -275,6 +324,22 @@ export default function PlanPage() {
   const hasApiKey = !!(selectedApiKey || configStatus?.llmApiKeys?.[provider.id]);
   const mealCount = settings?.mealCount ?? DEFAULT_MEAL_COUNT;
   const servings = settings?.servings ?? DEFAULT_SERVINGS;
+  const selectableLibraryItems = libraryItems
+    .filter((item) => item.status !== 'rejected')
+    .sort((a, b) => {
+      if (a.status === 'approved' && b.status !== 'approved') return -1;
+      if (a.status !== 'approved' && b.status === 'approved') return 1;
+      return b.libraryNumber - a.libraryNumber;
+    })
+    .slice(0, 12);
+
+  function toggleLibraryMeal(libraryId: string) {
+    setSelectedLibraryIds((current) => {
+      if (current.includes(libraryId)) return current.filter((id) => id !== libraryId);
+      if (current.length >= mealCount) return current;
+      return [...current, libraryId];
+    });
+  }
 
   return (
     <div className="space-y-10">
@@ -321,6 +386,47 @@ export default function PlanPage() {
 
         {error && (
           <p className="text-sm text-red-700 bg-red-50 rounded-lg px-4 py-2">❌ {error}</p>
+        )}
+
+        {selectableLibraryItems.length > 0 && (
+          <div className="rounded-xl border border-stone-100 bg-stone-50 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-stone-800">Maaltijden uit bibliotheek</p>
+                <p className="text-xs text-stone-500">
+                  Kies er nul of meer; de app vult de rest aan met nieuwe recepten.
+                </p>
+              </div>
+              {selectedLibraryIds.length > 0 && (
+                <button
+                  onClick={() => setSelectedLibraryIds([])}
+                  className="text-xs font-semibold text-stone-500 hover:text-stone-800"
+                >
+                  Wis selectie
+                </button>
+              )}
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {selectableLibraryItems.map((item) => (
+                <label key={item.libraryId} className="flex cursor-pointer items-start gap-2 rounded-lg bg-white p-3 text-sm shadow-sm ring-1 ring-stone-100">
+                  <input
+                    type="checkbox"
+                    checked={selectedLibraryIds.includes(item.libraryId)}
+                    onChange={() => toggleLibraryMeal(item.libraryId)}
+                    className="mt-1 h-4 w-4 rounded accent-orange-500"
+                  />
+                  <span className="min-w-0">
+                    <span className="block font-semibold text-stone-800">
+                      #{item.libraryNumber} {item.recipe.emoji} {item.recipe.title}
+                    </span>
+                    <span className="block truncate text-xs text-stone-500">
+                      {item.status === 'approved' ? 'Goedgekeurd' : 'Nieuw'} · {item.recipe.time} min · {item.recipe.type}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
         )}
 
         <button

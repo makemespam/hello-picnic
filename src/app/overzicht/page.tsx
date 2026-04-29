@@ -36,7 +36,7 @@ export default function OverviewPage() {
     const res = await fetch('/api/generate-meal-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recipes: plan.recipes.slice(0, 4) }),
+      body: JSON.stringify({ recipes: plan.recipes.slice(0, 6) }),
     });
     const data = await res.json();
     if (!res.ok || data.error) {
@@ -65,7 +65,7 @@ export default function OverviewPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-extrabold text-stone-900">Receptenoverzicht</h1>
-          <p className="mt-1 text-stone-500">Alle maaltijden compact bij elkaar, met een inspiratiebeeld in 2x2-stijl.</p>
+          <p className="mt-1 text-stone-500">Alle maaltijden compact bij elkaar, met een vierkant inspiratiebeeld.</p>
         </div>
         <button
           onClick={generateImage}
@@ -84,7 +84,7 @@ export default function OverviewPage() {
         <div className="space-y-3">
           <img
             src={image.imageDataUrl}
-            alt="Inspiratiebeeld van vier maaltijden in een 2x2 grid"
+            alt="Vierkant inspiratiebeeld van de geselecteerde maaltijden"
             className="aspect-square w-full rounded-2xl border border-stone-200 object-cover"
           />
           <p className="text-xs text-stone-400">

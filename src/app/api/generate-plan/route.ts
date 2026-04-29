@@ -38,6 +38,12 @@ SLIMME INGREDIËNTEN-OVERLAP (belangrijk!):
 KAST-INGREDIËNTEN (altijd in huis, NIET op de boodschappenlijst — zet pantry: true):
 {PANTRY_LIST}
 
+ALLERGIEËN EN HARDE UITSLUITINGEN:
+{ALLERGIES}
+
+PRODUCTEN IN HUIS DIE OP MOETEN (verwerk waar logisch en zet pantry: true als het product hierdoor niet gekocht hoeft te worden):
+{USE_UP_PRODUCTS}
+
 AANBIEDINGEN BIJ PICNIC DEZE WEEK (gebruik als het past, maar forceer niets):
 {PROMOTIONS}
 
@@ -90,7 +96,9 @@ function buildPrompt(
   pantryItems: string[],
   promotions: PicnicPromotion[],
   mealCount: number,
-  servings: number
+  servings: number,
+  allergies: string,
+  useUpProducts: string
 ) {
   const pantryList = pantryItems.length > 0
     ? pantryItems.join(', ')
@@ -104,6 +112,8 @@ function buildPrompt(
     .replaceAll('{MEAL_COUNT}', String(mealCount))
     .replaceAll('{SERVINGS}', String(servings))
     .replace('{PANTRY_LIST}', pantryList)
+    .replace('{ALLERGIES}', allergies.trim() || 'Geen opgegeven allergieën of harde uitsluitingen.')
+    .replace('{USE_UP_PRODUCTS}', useUpProducts.trim() || 'Geen specifieke producten opgegeven.')
     .replace('{PROMOTIONS}', promotionsList);
 
   const userMessage = preferences?.trim()
@@ -214,6 +224,8 @@ export async function POST(req: NextRequest) {
     provider,
     mealCount: rawMealCount,
     servings: rawServings,
+    allergies: rawAllergies,
+    useUpProducts: rawUseUpProducts,
   } = await req.json();
 
   const savedSettings = await readLocalSettings();
@@ -239,7 +251,9 @@ export async function POST(req: NextRequest) {
 
   const modelEnvKey = `${resolvedProvider.envKey.replace('_API_KEY', '')}_MODEL`;
   const resolvedModel = process.env[modelEnvKey] || getValidModel(providerId, model ?? savedSettings.model);
-  const { system, userMessage } = buildPrompt(preferences, pantryItems ?? [], promotions ?? [], mealCount, servings);
+  const allergies = typeof rawAllergies === 'string' ? rawAllergies : savedSettings.allergies;
+  const useUpProducts = typeof rawUseUpProducts === 'string' ? rawUseUpProducts : savedSettings.useUpProducts;
+  const { system, userMessage } = buildPrompt(preferences, pantryItems ?? [], promotions ?? [], mealCount, servings, allergies, useUpProducts);
 
   let text: string;
   try {

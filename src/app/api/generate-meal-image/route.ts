@@ -15,8 +15,22 @@ function usableKey(value: string | undefined) {
 }
 
 function buildImagePrompt(recipes: Recipe[]) {
-  const recipeNames = recipes.slice(0, 4).map((recipe, index) => `${index + 1}. ${recipe.title}`).join('\n');
-  return `Clean top-down minimalist meal prep grid, 2x2 layout, 4 distinct finished dishes, white background, natural daylight, appetizing but realistic home-cooked food, each quadrant clearly separated, no text, no labels, no hands, no packaging, no ingredient mixing between dishes.
+  const visibleRecipes = recipes.slice(0, 6);
+  const recipeNames = visibleRecipes.map((recipe, index) => `${index + 1}. ${recipe.title}`).join('\n');
+  const count = visibleRecipes.length;
+  const layout = count === 1
+    ? 'one centered dish'
+    : count === 2
+      ? 'two equal panels side by side'
+      : count === 3
+        ? 'three equal panels in a clean square composition'
+        : count === 4
+          ? '2x2 layout'
+          : count === 5
+            ? 'five panels in a balanced square meal prep composition'
+            : '2x3 layout inside a square canvas';
+
+  return `Create a square 1:1 image. Clean top-down minimalist meal prep grid, ${layout}, ${count} distinct finished dishes, white background, natural daylight, appetizing but realistic home-cooked food, each dish clearly separated, no text, no labels, no hands, no packaging, no ingredient mixing between dishes.
 
 Dishes:
 ${recipeNames}`;

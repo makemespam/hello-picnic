@@ -35,6 +35,8 @@ export function defaultSettings(): AppSettings {
     picnicEmail: '',
     picnicPassword: '',
     pantryItems: DEFAULT_PANTRY_KEYS,
+    allergies: '',
+    useUpProducts: '',
     imageProvider: DEFAULT_IMAGE_PROVIDER,
     imageModel: getDefaultImageModel(DEFAULT_IMAGE_PROVIDER),
     imageModelsByProvider: {
@@ -76,6 +78,8 @@ export function normalizeSettings(value: Partial<AppSettings> | null | undefined
     servings: value?.servings ?? DEFAULT_SERVINGS,
     picnicPassword: value?.picnicPassword ?? '',
     pantryItems: value?.pantryItems?.length ? value.pantryItems : DEFAULT_PANTRY_KEYS,
+    allergies: value?.allergies ?? '',
+    useUpProducts: value?.useUpProducts ?? '',
     imageProvider: imageConfig.id,
     imageModel,
     imageModelsByProvider: {
