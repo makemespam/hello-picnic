@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { AppSettings } from '@/lib/types';
 import { DEFAULT_PANTRY } from '@/data/pantry';
 import { defaultSettings, normalizeSettings } from '@/lib/settings';
@@ -23,6 +23,11 @@ import {
 type ConfigStatus = {
   llmApiKeys: Partial<Record<LlmProvider, boolean>>;
   picnicCredentials: boolean;
+};
+
+type BringList = {
+  listUuid: string;
+  name: string;
 };
 
 const RECIPE_TYPE_OPTIONS = [
@@ -54,13 +59,17 @@ export default function SettingsPage() {
   const [picnic2faCode, setPicnic2faCode] = useState('');
   const [pendingPicnicToken, setPendingPicnicToken] = useState('');
   const [needsPicnic2fa, setNeedsPicnic2fa] = useState(false);
+  const [bringStatus, setBringStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle');
+  const [bringError, setBringError] = useState('');
+  const [bringLists, setBringLists] = useState<BringList[]>([]);
 
-  useEffect(() => {
-    loadPersistedSettings();
-    fetchConfigStatus();
+  const fetchBringLists = useCallback(async () => {
+    const res = await fetch('/api/bring/lists');
+    const data = await res.json();
+    if (res.ok && data.lists) setBringLists(data.lists);
   }, []);
 
-  async function loadPersistedSettings() {
+  const loadPersistedSettings = useCallback(async () => {
     let localSettings: Partial<AppSettings> | null = null;
     try {
       const raw = localStorage.getItem('helloPicknicSettings');
@@ -75,12 +84,13 @@ export default function SettingsPage() {
       const merged = normalizeSettings(data.exists ? { ...localSettings, ...data.settings } : localSettings);
       setSettings(merged);
       localStorage.setItem('helloPicknicSettings', JSON.stringify(merged));
+      if (merged.bringAccessToken && merged.bringUserUuid) fetchBringLists();
     } catch {
       setSettings(normalizeSettings(localSettings));
     }
-  }
+  }, [fetchBringLists]);
 
-  async function fetchConfigStatus() {
+  const fetchConfigStatus = useCallback(async () => {
     try {
       const res = await fetch('/api/config/status');
       const data = await res.json();
@@ -88,7 +98,12 @@ export default function SettingsPage() {
     } catch {
       setConfigStatus(null);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    loadPersistedSettings();
+    fetchConfigStatus();
+  }, [fetchConfigStatus, loadPersistedSettings]);
 
   async function save() {
     const normalized = normalizeSettings(settings);
@@ -167,6 +182,52 @@ export default function SettingsPage() {
       setLoginStatus('error');
       setLoginError(data.error ?? '2FA-code controleren mislukt');
     }
+  }
+
+  async function loginBring() {
+    setBringStatus('loading');
+    setBringError('');
+    const res = await fetch('/api/bring/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: settings.bringEmail, password: settings.bringPassword }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      setBringStatus('error');
+      setBringError(data.error ?? 'Inloggen bij Bring mislukt.');
+      return;
+    }
+    const selected = data.selectedList as BringList | null;
+    const nextSettings = {
+      ...settings,
+      shoppingProvider: 'bring' as const,
+      bringUserUuid: data.uuid ?? '',
+      bringAccessToken: data.accessToken ?? '',
+      bringListUuid: selected?.listUuid ?? settings.bringListUuid,
+      bringListName: selected?.name ?? settings.bringListName,
+    };
+    setSettings(nextSettings);
+    localStorage.setItem('helloPicknicSettings', JSON.stringify(nextSettings));
+    setBringLists(data.lists ?? []);
+    setBringStatus('ok');
+  }
+
+  async function selectBringList(listUuid: string) {
+    const list = bringLists.find((item) => item.listUuid === listUuid);
+    const nextSettings = {
+      ...settings,
+      shoppingProvider: 'bring' as const,
+      bringListUuid: listUuid,
+      bringListName: list?.name ?? '',
+    };
+    setSettings(nextSettings);
+    localStorage.setItem('helloPicknicSettings', JSON.stringify(nextSettings));
+    await fetch('/api/bring/lists', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ listUuid, listName: list?.name ?? '' }),
+    });
   }
 
   function togglePantry(key: string) {
@@ -416,79 +477,159 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Picnic */}
+      {/* Shopping app */}
       <div className="card order-4 p-6 space-y-4">
-        <h2 className="font-bold text-stone-900 text-lg">🛒 Picnic-account</h2>
+        <h2 className="font-bold text-stone-900 text-lg">🛒 Boodschappen-app</h2>
         <p className="text-sm text-stone-500">
-          Log in met je Picnic-account om aanbiedingen op te halen en boodschappen toe te voegen aan je mandje.
-          Je gegevens worden lokaal opgeslagen in je browser en in het lokale projectbestand.
+          Kies waar je boodschappenlijst naartoe gaat. Picnic gebruikt productselectie en prijzen; Bring! gebruikt je gewone boodschappenlijst.
         </p>
 
         <label className="block">
-          <span className="text-sm font-semibold text-stone-700">E-mailadres</span>
-          <input
-            type="email"
-            value={settings.picnicEmail}
-            onChange={(e) => setSettings((p) => ({ ...p, picnicEmail: e.target.value }))}
-            placeholder="jij@example.com"
+          <span className="text-sm font-semibold text-stone-700">Bestemming</span>
+          <select
+            value={settings.shoppingProvider}
+            onChange={(e) => setSettings((p) => ({ ...p, shoppingProvider: e.target.value === 'bring' ? 'bring' : 'picnic' }))}
             className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
-          />
+          >
+            <option value="picnic">Picnic</option>
+            <option value="bring">Bring!</option>
+          </select>
         </label>
 
-        <label className="block">
-          <span className="text-sm font-semibold text-stone-700">Wachtwoord</span>
-          <input
-            type="password"
-            value={settings.picnicPassword}
-            onChange={(e) => setSettings((p) => ({ ...p, picnicPassword: e.target.value }))}
-            placeholder="Wordt lokaal opgeslagen"
-            className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
-          />
-        </label>
-
-        <button
-          onClick={loginPicnic}
-          disabled={loginStatus === 'loading' || (!hasPicnicEnvCredentials && (!settings.picnicEmail || !settings.picnicPassword))}
-          className="btn-secondary"
-        >
-          {loginStatus === 'loading' ? '⏳ Inloggen…' : settings.picnicAuthToken ? '✓ Verbonden met Picnic' : '🔗 Verbinden met Picnic'}
-        </button>
-
-        {needsPicnic2fa && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
-            <p className="text-sm font-semibold text-amber-800">Picnic vraagt om 2FA-verificatie.</p>
+        {settings.shoppingProvider === 'picnic' && (
+          <>
             <label className="block">
-              <span className="text-sm font-semibold text-stone-700">SMS-code</span>
+              <span className="text-sm font-semibold text-stone-700">Picnic e-mailadres</span>
               <input
-                type="text"
-                inputMode="numeric"
-                value={picnic2faCode}
-                onChange={(e) => setPicnic2faCode(e.target.value)}
+                type="email"
+                value={settings.picnicEmail}
+                onChange={(e) => setSettings((p) => ({ ...p, picnicEmail: e.target.value }))}
+                placeholder="jij@example.com"
                 className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
               />
             </label>
+
+            <label className="block">
+              <span className="text-sm font-semibold text-stone-700">Picnic wachtwoord</span>
+              <input
+                type="password"
+                value={settings.picnicPassword}
+                onChange={(e) => setSettings((p) => ({ ...p, picnicPassword: e.target.value }))}
+                placeholder="Wordt lokaal opgeslagen"
+                className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+              />
+            </label>
+
             <button
-              onClick={verifyPicnic2fa}
-              disabled={loginStatus === 'loading' || !picnic2faCode}
+              onClick={loginPicnic}
+              disabled={loginStatus === 'loading' || (!hasPicnicEnvCredentials && (!settings.picnicEmail || !settings.picnicPassword))}
               className="btn-secondary"
             >
-              Code controleren
+              {loginStatus === 'loading' ? '⏳ Inloggen…' : settings.picnicAuthToken ? '✓ Verbonden met Picnic' : '🔗 Verbinden met Picnic'}
             </button>
-          </div>
+
+            {needsPicnic2fa && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
+                <p className="text-sm font-semibold text-amber-800">Picnic vraagt om 2FA-verificatie.</p>
+                <label className="block">
+                  <span className="text-sm font-semibold text-stone-700">SMS-code</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={picnic2faCode}
+                    onChange={(e) => setPicnic2faCode(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                  />
+                </label>
+                <button
+                  onClick={verifyPicnic2fa}
+                  disabled={loginStatus === 'loading' || !picnic2faCode}
+                  className="btn-secondary"
+                >
+                  Code controleren
+                </button>
+              </div>
+            )}
+
+            {hasPicnicEnvCredentials && (
+              <p className="text-sm text-emerald-600">✓ Server-env heeft Picnic-inloggegevens.</p>
+            )}
+            {loginStatus === 'ok' && (
+              <p className="text-sm text-emerald-600">✓ Ingelogd! Sessie-token opgeslagen.</p>
+            )}
+            {loginStatus === 'error' && (
+              <p className="text-sm text-red-600">❌ {loginError}</p>
+            )}
+            {settings.picnicAuthToken && loginStatus !== 'ok' && (
+              <p className="text-sm text-emerald-600">✓ Actief sessie-token aanwezig</p>
+            )}
+          </>
         )}
 
-        {hasPicnicEnvCredentials && (
-          <p className="text-sm text-emerald-600">✓ Server-env heeft Picnic-inloggegevens.</p>
-        )}
+        {settings.shoppingProvider === 'bring' && (
+          <>
+            <label className="block">
+              <span className="text-sm font-semibold text-stone-700">Bring! e-mailadres</span>
+              <input
+                type="email"
+                value={settings.bringEmail}
+                onChange={(e) => setSettings((p) => ({ ...p, bringEmail: e.target.value }))}
+                placeholder="jij@example.com"
+                className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+              />
+            </label>
 
-        {loginStatus === 'ok' && (
-          <p className="text-sm text-emerald-600">✓ Ingelogd! Sessie-token opgeslagen.</p>
-        )}
-        {loginStatus === 'error' && (
-          <p className="text-sm text-red-600">❌ {loginError}</p>
-        )}
-        {settings.picnicAuthToken && loginStatus !== 'ok' && (
-          <p className="text-sm text-emerald-600">✓ Actief sessie-token aanwezig</p>
+            <label className="block">
+              <span className="text-sm font-semibold text-stone-700">Bring! wachtwoord</span>
+              <input
+                type="password"
+                value={settings.bringPassword}
+                onChange={(e) => setSettings((p) => ({ ...p, bringPassword: e.target.value }))}
+                placeholder="Wordt lokaal opgeslagen"
+                className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+              />
+            </label>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={loginBring}
+                disabled={bringStatus === 'loading' || !settings.bringEmail || !settings.bringPassword}
+                className="btn-secondary"
+              >
+                {bringStatus === 'loading' ? 'Inloggen…' : settings.bringAccessToken ? '✓ Verbonden met Bring!' : 'Verbinden met Bring!'}
+              </button>
+              {settings.bringAccessToken && (
+                <button onClick={fetchBringLists} className="btn-secondary">
+                  Lijsten verversen
+                </button>
+              )}
+            </div>
+
+            {bringLists.length > 0 && (
+              <label className="block">
+                <span className="text-sm font-semibold text-stone-700">Bring! lijst</span>
+                <select
+                  value={settings.bringListUuid}
+                  onChange={(e) => selectBringList(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                >
+                  {bringLists.map((list) => (
+                    <option key={list.listUuid} value={list.listUuid}>{list.name}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            {settings.bringListName && (
+              <p className="text-sm text-emerald-600">✓ Geselecteerde Bring!-lijst: {settings.bringListName}</p>
+            )}
+            {bringStatus === 'ok' && (
+              <p className="text-sm text-emerald-600">✓ Bring! verbonden.</p>
+            )}
+            {bringStatus === 'error' && (
+              <p className="text-sm text-red-600">❌ {bringError}</p>
+            )}
+          </>
         )}
       </div>
 

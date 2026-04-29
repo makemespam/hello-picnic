@@ -175,7 +175,7 @@ export default function PlanPage() {
         setShoppingItems(buildShoppingList(saved, pantry));
       }
 
-      if (s?.picnicAuthToken) fetchPromotions(s.picnicAuthToken);
+      if (s?.shoppingProvider === 'picnic' && s?.picnicAuthToken) fetchPromotions(s.picnicAuthToken);
     }
 
     loadAppSettings();
@@ -359,7 +359,10 @@ export default function PlanPage() {
   const hasApiKey = !!(selectedApiKey || configStatus?.llmApiKeys?.[provider.id]);
   const mealCount = settings?.mealCount ?? DEFAULT_MEAL_COUNT;
   const servings = settings?.servings ?? DEFAULT_SERVINGS;
-  const selectedPricedItems = shoppingItems.filter((item) => item.enabled !== false && !item.pantry && item.picnicArticle);
+  const shoppingProvider = settings?.shoppingProvider ?? 'picnic';
+  const selectedPricedItems = shoppingProvider === 'picnic'
+    ? shoppingItems.filter((item) => item.enabled !== false && !item.pantry && item.picnicArticle)
+    : [];
   const pricedItemCount = selectedPricedItems.length;
   const totalSelectedItems = shoppingItems.filter((item) => item.enabled !== false && !item.pantry).length;
   const totalPicnicCents = selectedPricedItems.reduce((sum, item) => {
@@ -531,7 +534,7 @@ export default function PlanPage() {
           <div>
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <h2 className="text-xl font-bold text-stone-900">Boodschappenlijst</h2>
-              {pricedItemCount > 0 && (
+              {shoppingProvider === 'picnic' && pricedItemCount > 0 && (
                 <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
                   <p className="font-semibold">
                     {formatEuro(Math.round(pricePerPortion))} per portie
@@ -544,7 +547,10 @@ export default function PlanPage() {
             </div>
             <ShoppingList
               items={shoppingItems}
+              shoppingProvider={shoppingProvider}
               picnicToken={settings?.picnicAuthToken ?? null}
+              bringConnected={Boolean(settings?.bringAccessToken && settings?.bringListUuid)}
+              bringListName={settings?.bringListName ?? ''}
               onItemsChange={handleItemsChange}
             />
           </div>

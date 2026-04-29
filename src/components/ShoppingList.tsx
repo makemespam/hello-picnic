@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { ShoppingItem, PicnicArticle } from '@/lib/types';
+import type { ShoppingItem, PicnicArticle, ShoppingProvider } from '@/lib/types';
 
 const CATEGORY_ORDER = ['groenten', 'fruit', 'vis', 'zuivel', 'kruiden', 'granen', 'peulvruchten', 'overig'];
 const CATEGORY_LABEL: Record<string, string> = {
@@ -76,11 +76,14 @@ function packagePlanFor(item: ShoppingItem, article: PicnicArticle) {
 
 interface Props {
   items: ShoppingItem[];
+  shoppingProvider: ShoppingProvider;
   picnicToken: string | null;
+  bringConnected: boolean;
+  bringListName: string;
   onItemsChange: (items: ShoppingItem[]) => void;
 }
 
-export default function ShoppingList({ items, picnicToken, onItemsChange }: Props) {
+export default function ShoppingList({ items, shoppingProvider, picnicToken, bringConnected, bringListName, onItemsChange }: Props) {
   const [addingAll, setAddingAll] = useState(false);
   const [clearingCart, setClearingCart] = useState(false);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
@@ -142,7 +145,7 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
   }
 
   async function searchAllProducts() {
-    if (!picnicToken) return;
+    if (shoppingProvider !== 'picnic' || !picnicToken) return;
     setAddingAll(true);
     setPicnicError('');
     for (const item of selectedToBuy) {
@@ -178,7 +181,48 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
     setAddedIds((prev) => new Set([...prev, item.name]));
   }
 
+  function bringPayloadFor(item: ShoppingItem) {
+    return {
+      name: item.display,
+      specification: `${item.totalAmount} ${item.unit}`.trim(),
+    };
+  }
+
+  async function addToBring(item: ShoppingItem) {
+    setPicnicError('');
+    const res = await fetch('/api/bring/items', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: [bringPayloadFor(item)] }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.error) {
+      setPicnicError(data.error ?? 'Toevoegen aan Bring! mislukt.');
+      return;
+    }
+    setAddedIds((prev) => new Set([...prev, item.name]));
+  }
+
   async function searchAndAddAll() {
+    if (shoppingProvider === 'bring') {
+      if (!bringConnected) return;
+      setAddingAll(true);
+      setPicnicError('');
+      const res = await fetch('/api/bring/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: selectedToBuy.map(bringPayloadFor) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.error) {
+        setPicnicError(data.error ?? 'Toevoegen aan Bring! mislukt.');
+        setAddingAll(false);
+        return;
+      }
+      setAddedIds((prev) => new Set([...prev, ...selectedToBuy.map((item) => item.name)]));
+      setAddingAll(false);
+      return;
+    }
     if (!picnicToken) return;
     setAddingAll(true);
     setPicnicError('');
@@ -213,7 +257,7 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
   return (
     <div className="space-y-6">
       {/* Picnic action bar */}
-      {picnicToken && (
+      {shoppingProvider === 'picnic' && picnicToken && (
         <div className="flex flex-col gap-4 rounded-2xl bg-blue-50 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="font-semibold text-blue-900">Verbonden met Picnic</p>
@@ -247,6 +291,26 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
         </div>
       )}
 
+      {shoppingProvider === 'bring' && (
+        <div className="flex flex-col gap-4 rounded-2xl bg-emerald-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-semibold text-emerald-900">
+              {bringConnected ? `Verbonden met Bring!${bringListName ? ` · ${bringListName}` : ''}` : 'Bring! niet verbonden'}
+            </p>
+            <p className="text-sm text-emerald-700">
+              {bringConnected ? 'Stuur de geselecteerde boodschappen naar je Bring!-lijst.' : 'Verbind Bring! eerst bij Instellingen.'}
+            </p>
+          </div>
+          <button
+            onClick={searchAndAddAll}
+            disabled={addingAll || !bringConnected || selectedToBuy.length === 0}
+            className="btn-primary bg-emerald-600 hover:bg-emerald-700 whitespace-nowrap"
+          >
+            {addingAll ? 'Toevoegen...' : 'Naar Bring!'}
+          </button>
+        </div>
+      )}
+
       {picnicError && (
         <p className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">❌ {picnicError}</p>
       )}
@@ -272,9 +336,9 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
                       onChange={(e) => setItemEnabled(item, e.target.checked)}
                       className="h-4 w-4 rounded accent-orange-500"
                     />
-                    meenemen naar Picnic
+                    meenemen naar {shoppingProvider === 'bring' ? 'Bring!' : 'Picnic'}
                   </label>
-                  {item.picnicCandidates && item.picnicCandidates.length > 0 && (
+                  {shoppingProvider === 'picnic' && item.picnicCandidates && item.picnicCandidates.length > 0 && (
                     <select
                       value={item.picnicArticle?.id ?? ''}
                       onChange={(e) => selectCandidate(item, e.target.value)}
@@ -289,26 +353,26 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
                       ))}
                     </select>
                   )}
-                  {item.picnicCoverage && (
+                  {shoppingProvider === 'picnic' && item.picnicCoverage && (
                     <p className="mt-1 text-xs text-stone-400">
                       Aantal: {item.picnicCoverage}
                     </p>
                   )}
-                  {item.picnicWarning && (
+                  {shoppingProvider === 'picnic' && item.picnicWarning && (
                     <p className="mt-1 text-xs text-amber-600">{item.picnicWarning}</p>
                   )}
-                  {item.picnicArticle && !item.picnicCandidates?.length && (
+                  {shoppingProvider === 'picnic' && item.picnicArticle && !item.picnicCandidates?.length && (
                     <p className="text-xs text-stone-400 truncate">
                       ✓ Geselecteerd: {item.picnicArticle.name} — €{(item.picnicArticle.price / 100).toFixed(2)}
                       {item.picnicArticle.unitQuantity ? ` · ${item.picnicArticle.unitQuantity}` : ''}
                     </p>
                   )}
-                  {item.notFound && (
+                  {shoppingProvider === 'picnic' && item.notFound && (
                     <p className="text-xs text-red-400">Niet gevonden op Picnic</p>
                   )}
                 </div>
 
-                {picnicToken && (
+                {shoppingProvider === 'picnic' && picnicToken && (
                   <div className="flex shrink-0 gap-2">
                     {!item.picnicArticle && !item.notFound && (
                       <button
@@ -328,6 +392,22 @@ export default function ShoppingList({ items, picnicToken, onItemsChange }: Prop
                       </button>
                     )}
                     {addedIds.has(item.name) && (
+                      <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+                        ✓ Toegevoegd
+                      </span>
+                    )}
+                  </div>
+                )}
+                {shoppingProvider === 'bring' && bringConnected && item.enabled !== false && (
+                  <div className="flex shrink-0 gap-2">
+                    {!addedIds.has(item.name) ? (
+                      <button
+                        onClick={() => addToBring(item)}
+                        className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-200"
+                      >
+                        + Bring!
+                      </button>
+                    ) : (
                       <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
                         ✓ Toegevoegd
                       </span>
