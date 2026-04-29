@@ -484,17 +484,32 @@ export default function SettingsPage() {
           Kies waar je boodschappenlijst naartoe gaat. Picnic gebruikt productselectie en prijzen; Bring! gebruikt je gewone boodschappenlijst.
         </p>
 
-        <label className="block">
-          <span className="text-sm font-semibold text-stone-700">Bestemming</span>
-          <select
-            value={settings.shoppingProvider}
-            onChange={(e) => setSettings((p) => ({ ...p, shoppingProvider: e.target.value === 'bring' ? 'bring' : 'picnic' }))}
-            className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
-          >
-            <option value="picnic">Picnic</option>
-            <option value="bring">Bring!</option>
-          </select>
-        </label>
+        <div>
+          <p className="text-sm font-semibold text-stone-700">Bestemming</p>
+          <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl bg-stone-100 p-1">
+            {[
+              { id: 'picnic', label: 'Picnic', help: 'Bezorgen + prijzen' },
+              { id: 'bring', label: 'Bring!', help: 'Boodschappenlijst' },
+            ].map((option) => {
+              const active = settings.shoppingProvider === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setSettings((p) => ({ ...p, shoppingProvider: option.id === 'bring' ? 'bring' : 'picnic' }))}
+                  className={`rounded-lg px-3 py-3 text-left transition ${
+                    active
+                      ? 'bg-white text-stone-900 shadow-sm ring-1 ring-stone-200'
+                      : 'text-stone-500 hover:text-stone-800'
+                  }`}
+                >
+                  <span className="block text-sm font-bold">{option.label}</span>
+                  <span className="block text-xs">{option.help}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         {settings.shoppingProvider === 'picnic' && (
           <>

@@ -15,7 +15,9 @@ async function settingsWithFreshBringToken() {
   settings = await writeLocalSettings({
     ...settings,
     bringUserUuid: login.uuid,
+    bringPublicUserUuid: login.publicUuid,
     bringAccessToken: login.accessToken,
+    bringRefreshToken: login.refreshToken,
   });
   return settings;
 }
@@ -32,7 +34,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const existing = await getBringItems(settings.bringListUuid, settings.bringAccessToken);
+    const existing = await getBringItems(settings.bringListUuid, settings.bringAccessToken, settings.bringUserUuid, settings.bringPublicUserUuid);
     const existingNames = new Set(existing.map((item) => item.name.trim().toLocaleLowerCase('nl-NL')));
     const added: BringAddItem[] = [];
     const skipped: BringAddItem[] = [];
@@ -44,7 +46,7 @@ export async function POST(req: NextRequest) {
         skipped.push(item);
         continue;
       }
-      await addBringItem(settings.bringListUuid, settings.bringAccessToken, settings.bringUserUuid, name, item.specification);
+      await addBringItem(settings.bringListUuid, settings.bringAccessToken, settings.bringUserUuid, settings.bringPublicUserUuid, name, item.specification);
       existingNames.add(name.toLocaleLowerCase('nl-NL'));
       added.push(item);
     }
@@ -55,10 +57,16 @@ export async function POST(req: NextRequest) {
     if (message.includes('401') || message.toLocaleLowerCase('nl-NL').includes('unauthorized')) {
       try {
         const login = await loginBring(settings.bringEmail, settings.bringPassword);
-        settings = await writeLocalSettings({ ...settings, bringUserUuid: login.uuid, bringAccessToken: login.accessToken });
+        settings = await writeLocalSettings({
+          ...settings,
+          bringUserUuid: login.uuid,
+          bringPublicUserUuid: login.publicUuid,
+          bringAccessToken: login.accessToken,
+          bringRefreshToken: login.refreshToken,
+        });
         for (const item of items) {
           if (item.name?.trim()) {
-            await addBringItem(settings.bringListUuid, settings.bringAccessToken, settings.bringUserUuid, item.name.trim(), item.specification);
+            await addBringItem(settings.bringListUuid, settings.bringAccessToken, settings.bringUserUuid, settings.bringPublicUserUuid, item.name.trim(), item.specification);
           }
         }
         return NextResponse.json({ added: items, skipped: [], refreshed: true });

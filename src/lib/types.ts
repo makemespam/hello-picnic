@@ -102,7 +102,9 @@ export interface AppSettings {
   bringEmail: string;
   bringPassword: string;
   bringUserUuid: string;
+  bringPublicUserUuid: string;
   bringAccessToken: string;
+  bringRefreshToken: string;
   bringListUuid: string;
   bringListName: string;
   pantryItems: string[]; // canonical names of pantry items the user has

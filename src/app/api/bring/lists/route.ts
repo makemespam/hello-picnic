@@ -9,7 +9,7 @@ export async function GET() {
   }
 
   try {
-    const lists = await getBringLists(settings.bringUserUuid, settings.bringAccessToken);
+    const lists = await getBringLists(settings.bringUserUuid, settings.bringAccessToken, settings.bringPublicUserUuid);
     return NextResponse.json({ lists });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -40,9 +40,11 @@ export async function POST() {
     const saved = await writeLocalSettings({
       ...settings,
       bringUserUuid: login.uuid,
+      bringPublicUserUuid: login.publicUuid,
       bringAccessToken: login.accessToken,
+      bringRefreshToken: login.refreshToken,
     });
-    const lists = await getBringLists(saved.bringUserUuid, saved.bringAccessToken);
+    const lists = await getBringLists(saved.bringUserUuid, saved.bringAccessToken, saved.bringPublicUserUuid);
     return NextResponse.json({ lists, settings: saved });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

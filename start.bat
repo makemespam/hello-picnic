@@ -10,14 +10,19 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [2/3] Production build maken...
+echo [2/4] Oude Next build-cache opschonen...
+if exist ".next" (
+  rmdir /s /q ".next"
+)
+
+echo [3/4] Production build maken...
 call npm run build
 if errorlevel 1 (
   echo npm run build is mislukt.
   exit /b 1
 )
 
-echo [3/3] Browser openen op http://localhost:3000 ...
+echo [4/4] Browser openen op http://localhost:3000 ...
 start "" "http://localhost:3000"
 
 echo Production server wordt gestart...

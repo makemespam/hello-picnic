@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const login = await loginBring(email, password);
-    const lists = await getBringLists(login.uuid, login.accessToken);
+    const lists = await getBringLists(login.uuid, login.accessToken, login.publicUuid);
     const settings = await readLocalSettings();
     const preferred = lists.find((list) => list.name.toLocaleLowerCase('nl-NL').includes('boodschap')) ?? lists[0];
     await writeLocalSettings({
@@ -19,7 +19,9 @@ export async function POST(req: NextRequest) {
       bringEmail: email,
       bringPassword: password,
       bringUserUuid: login.uuid,
+      bringPublicUserUuid: login.publicUuid,
       bringAccessToken: login.accessToken,
+      bringRefreshToken: login.refreshToken,
       bringListUuid: preferred?.listUuid ?? settings.bringListUuid,
       bringListName: preferred?.name ?? settings.bringListName,
     });
