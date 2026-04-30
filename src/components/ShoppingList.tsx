@@ -30,6 +30,17 @@ function recipeAmountInComparableUnit(item: ShoppingItem): { amount: number; uni
 function parsePackageAmount(unitQuantity: string | undefined, desiredUnit?: PackageUnit): { amount: number; unit: PackageUnit; label: string } | null {
   if (!unitQuantity) return null;
   const lower = unitQuantity.toLocaleLowerCase('nl-NL').replace(',', '.');
+  const multiPack = lower.match(/(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\s*(kg|kilo|g|gram|gr|l|liter|ml|milliliter|stuk|stuks)\b/);
+  if (multiPack) {
+    const count = Number(multiPack[1]);
+    const amount = Number(multiPack[2]);
+    const rawUnit = multiPack[3];
+    if (['kg', 'kilo'].includes(rawUnit)) return { amount: count * amount * 1000, unit: 'g', label: unitQuantity };
+    if (['g', 'gram', 'gr'].includes(rawUnit)) return { amount: count * amount, unit: 'g', label: unitQuantity };
+    if (['l', 'liter'].includes(rawUnit)) return { amount: count * amount * 1000, unit: 'ml', label: unitQuantity };
+    if (['ml', 'milliliter'].includes(rawUnit)) return { amount: count * amount, unit: 'ml', label: unitQuantity };
+    if (['stuk', 'stuks'].includes(rawUnit)) return { amount: count * amount, unit: 'stuks', label: unitQuantity };
+  }
   const patterns: Array<[RegExp, PackageUnit, number]> = [
     [/(\d+(?:\.\d+)?)\s*(?:kg|kilo)\b/, 'g', 1000],
     [/(\d+(?:\.\d+)?)\s*(?:g|gram|gr)\b/, 'g', 1],

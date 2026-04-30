@@ -115,6 +115,8 @@ export interface AppSettings {
   imageProvider: ImageProvider;
   imageModel: string;
   imageModelsByProvider: Partial<Record<ImageProvider, string>>;
+  imageOpenaiApiKey: string;
+  imageGeminiApiKey: string;
   openaiImageQuality: OpenAIImageQuality;
 }
 

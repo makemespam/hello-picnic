@@ -1,8 +1,9 @@
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import type { Recipe, RecipeLibraryItem } from '@/lib/types';
+import { getLocalDataDir } from '@/lib/local-data-dir';
 
-const LIBRARY_DIR = path.join(process.cwd(), '.local');
+const LIBRARY_DIR = getLocalDataDir();
 const LIBRARY_FILE = path.join(LIBRARY_DIR, 'recipe-library.json');
 
 interface RecipeLibraryFile {

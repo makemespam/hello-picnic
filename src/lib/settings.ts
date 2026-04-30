@@ -64,6 +64,8 @@ export function defaultSettings(): AppSettings {
     imageModelsByProvider: {
       [DEFAULT_IMAGE_PROVIDER]: getDefaultImageModel(DEFAULT_IMAGE_PROVIDER),
     },
+    imageOpenaiApiKey: '',
+    imageGeminiApiKey: '',
     openaiImageQuality: DEFAULT_OPENAI_IMAGE_QUALITY,
   };
 }
@@ -119,6 +121,8 @@ export function normalizeSettings(value: Partial<AppSettings> | null | undefined
       ...imageModelsByProvider,
       [imageConfig.id]: imageModel,
     },
+    imageOpenaiApiKey: value?.imageOpenaiApiKey ?? '',
+    imageGeminiApiKey: value?.imageGeminiApiKey ?? '',
     openaiImageQuality: getValidOpenAIImageQuality(value?.openaiImageQuality),
   };
 }

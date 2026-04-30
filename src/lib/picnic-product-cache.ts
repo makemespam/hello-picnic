@@ -1,8 +1,9 @@
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import type { IngredientCategory, PicnicArticle, ProductPreference } from '@/lib/types';
+import { getLocalDataDir } from '@/lib/local-data-dir';
 
-const CACHE_DIR = path.join(process.cwd(), '.local');
+const CACHE_DIR = getLocalDataDir();
 const CACHE_FILE = path.join(CACHE_DIR, 'picnic-products.json');
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 

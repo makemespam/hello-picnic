@@ -2,8 +2,9 @@ import { mkdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import type { AppSettings } from '@/lib/types';
 import { normalizeSettings } from '@/lib/settings';
+import { getLocalDataDir } from '@/lib/local-data-dir';
 
-const SETTINGS_DIR = path.join(process.cwd(), '.local');
+const SETTINGS_DIR = getLocalDataDir();
 const SETTINGS_FILE = path.join(SETTINGS_DIR, 'settings.json');
 
 export async function readLocalSettings(): Promise<AppSettings> {

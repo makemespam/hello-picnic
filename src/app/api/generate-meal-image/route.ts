@@ -114,8 +114,8 @@ export async function POST(req: NextRequest) {
   }
 
   const settings = await readLocalSettings();
-  const geminiKey = usableKey(settings.geminiApiKey) || usableKey(process.env.GEMINI_API_KEY);
-  const openAiKey = usableKey(settings.openaiApiKey) || usableKey(process.env.OPENAI_API_KEY);
+  const geminiKey = usableKey(settings.imageGeminiApiKey) || usableKey(settings.geminiApiKey) || usableKey(process.env.GEMINI_API_KEY);
+  const openAiKey = usableKey(settings.imageOpenaiApiKey) || usableKey(settings.openaiApiKey) || usableKey(process.env.OPENAI_API_KEY);
   const provider = (imageProvider ?? settings.imageProvider ?? DEFAULT_IMAGE_PROVIDER) as ImageProvider;
   const model = getValidImageModel(provider, imageModel ?? settings.imageModel);
   const quality = getValidOpenAIImageQuality(openaiImageQuality ?? settings.openaiImageQuality);

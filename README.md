@@ -32,3 +32,26 @@ Handige routes:
 - `http://localhost:3000/bibliotheek`
 
 Maak lokaal een `.env.local` aan voor API-keys en Picnic-inlog. Commit dat bestand niet.
+
+## Windows desktop installer bouwen
+
+Voor een eerste standalone Windows-app:
+
+```bash
+npm install
+npm run desktop:dist
+```
+
+Of dubbelklik:
+
+```text
+installer.bat
+```
+
+De installer komt in:
+
+```text
+dist/
+```
+
+De desktop-app slaat instellingen, receptenbibliotheek en lokale caches op in de Windows gebruikersdata-map van Hello Picnic. Daardoor hoeft de installatiemap zelf niet schrijfbaar te zijn.

@@ -24,6 +24,8 @@ REGELS:
 - Voeg per ingredient "productPreference" toe: "fresh", "frozen", "canned", "dried" of "any"
 - Voor normale groenten is "productPreference": "fresh", tenzij je expliciet diepvries/blik/gedroogd bedoelt
 - Voor peulvruchten mag "canned" of "dried"; voor kokosmelk "any"; voor rijst/pasta "dried"
+- Wees specifiek bij aardappelen: gebruik in "display" en "name" waar passend "kruimige aardappelen", "vastkokende aardappelen" of "krieltjes" in plaats van alleen "aardappelen"
+- Kies het aardappeltype logisch bij het recept: kruimig voor puree/stamppot, vastkokend voor koken/bakken/salades, krieltjes voor traybakes/sneller gemak
 - Gezond, gevarieerd en seizoensgebonden
 - Recepten zijn realistisch en smakelijk, in de stijl van Hello Fresh
 - Instructies in heldere, vriendelijke Nederlandse taal (jij-vorm)

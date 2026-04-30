@@ -426,6 +426,29 @@ export default function SettingsPage() {
           </select>
         </label>
 
+        <label className="block">
+          <span className="text-sm font-semibold text-stone-700">
+            {settings.imageProvider === 'gemini' ? 'Gemini API-sleutel voor beeld' : 'OpenAI API-sleutel voor beeld'}
+          </span>
+          <input
+            type="password"
+            value={settings.imageProvider === 'gemini' ? settings.imageGeminiApiKey : settings.imageOpenaiApiKey}
+            onChange={(e) => {
+              const value = e.target.value;
+              setSettings((p) => ({
+                ...p,
+                imageGeminiApiKey: p.imageProvider === 'gemini' ? value : p.imageGeminiApiKey,
+                imageOpenaiApiKey: p.imageProvider === 'openai' ? value : p.imageOpenaiApiKey,
+              }));
+            }}
+            placeholder={settings.imageProvider === 'gemini' ? 'AIza...' : 'sk-...'}
+            className="mt-1 w-full rounded-xl border border-stone-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+          />
+          <span className="mt-1 block text-xs text-stone-400">
+            Mag anders zijn dan je tekst-LLM sleutel. Als dit veld leeg is, gebruikt de app als fallback de algemene sleutel van dezelfde aanbieder.
+          </span>
+        </label>
+
         {activeImageProvider.models.find((model) => model.id === settings.imageModel)?.note && (
           <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-4 py-2">
             {activeImageProvider.models.find((model) => model.id === settings.imageModel)?.note}

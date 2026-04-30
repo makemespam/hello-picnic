@@ -8,7 +8,7 @@ import type { IngredientCategory, ProductPreference } from '@/lib/types';
 function cleanSearchTerm(term: string) {
   const cleaned = term
     .replace(/\([^)]*\)/g, ' ')
-    .replace(/\b(vers|verse|blik|diepvries|naturel|vastkokend|vastkokende)\b/gi, ' ')
+    .replace(/\b(vers|verse|blik|diepvries|naturel)\b/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   if (/^wortel(en)?$/i.test(cleaned) || /\bwortel(en)?\b/i.test(cleaned)) return cleaned.replace(/\bwortel(en)?\b/gi, 'waspeen');
@@ -16,6 +16,10 @@ function cleanSearchTerm(term: string) {
   if (/\bknoflook\b/i.test(cleaned)) return 'knoflook';
   if (/\bgember\b/i.test(cleaned)) return 'gember';
   return cleaned;
+}
+
+function resultLimit(term: string) {
+  return /\baardappel|aardappelen|krieltjes|kruimig|vastkokend/i.test(term) ? 8 : 5;
 }
 
 export async function GET(req: NextRequest) {
@@ -34,7 +38,7 @@ export async function GET(req: NextRequest) {
   const cached = force ? null : await getCachedPicnicSearch(term, category, preference);
   if (cached) {
     const ranked = rankPicnicArticles(term, category, cached.articles, preference);
-    return NextResponse.json({ articles: ranked.slice(0, 5), source: 'cache', updatedAt: cached.updatedAt });
+    return NextResponse.json({ articles: ranked.slice(0, resultLimit(term)), source: 'cache', updatedAt: cached.updatedAt });
   }
 
   const res = await fetch(
@@ -93,7 +97,7 @@ export async function GET(req: NextRequest) {
   const cachedSearch = await savePicnicSearch(term, selected, category, preference);
 
   return NextResponse.json({
-    articles: cachedSearch.articles.slice(0, 5),
+    articles: cachedSearch.articles.slice(0, resultLimit(term)),
     source: 'picnic',
     validationSource,
     llmSearchTerm,

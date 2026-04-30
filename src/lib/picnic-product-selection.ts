@@ -54,6 +54,13 @@ const REQUIRED_TERMS: Record<string, string[]> = {
   prei: ['prei'],
   doperwten: ['doperwten', 'erwten'],
   gember: ['gember'],
+  krieltjes: ['krieltjes', 'kriel'],
+  kruimige: ['kruimig', 'kruimige', 'aardappel', 'aardappelen'],
+  kruimig: ['kruimig', 'kruimige', 'aardappel', 'aardappelen'],
+  vastkokende: ['vastkokend', 'vastkokende', 'aardappel', 'aardappelen'],
+  vastkokend: ['vastkokend', 'vastkokende', 'aardappel', 'aardappelen'],
+  aardappel: ['aardappel', 'aardappelen', 'krieltjes'],
+  aardappelen: ['aardappel', 'aardappelen', 'krieltjes'],
   eieren: ['ei', 'eier', 'eieren'],
   ei: ['ei', 'eier', 'eieren'],
   kokosmelk: ['kokosmelk'],
@@ -185,6 +192,18 @@ function scoreArticle(
   if (query.toLocaleLowerCase('nl-NL').includes('gember')) {
     if (name === 'gember' || name === 'bio gember' || name.endsWith(' gember')) score += 110;
     if (name.includes('shot') || name.includes('sap') || name.includes('sinaas') || name.includes('gekoeld')) score -= 170;
+  }
+
+  const normalizedQuery = query.toLocaleLowerCase('nl-NL');
+  if (normalizedQuery.includes('krieltjes')) {
+    if (name.includes('kriel')) score += 90;
+    if (name.includes('kruimig') || name.includes('vastkokend')) score -= 30;
+  } else if (normalizedQuery.includes('kruimig')) {
+    if (name.includes('kruimig')) score += 90;
+    if (name.includes('vastkokend') || name.includes('kriel')) score -= 60;
+  } else if (normalizedQuery.includes('vastkokend')) {
+    if (name.includes('vastkokend')) score += 90;
+    if (name.includes('kruimig') || name.includes('kriel')) score -= 60;
   }
 
   if (query.toLocaleLowerCase('nl-NL').includes('ei') || query.toLocaleLowerCase('nl-NL').includes('eieren')) {
