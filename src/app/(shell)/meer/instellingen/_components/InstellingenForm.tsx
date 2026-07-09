@@ -11,6 +11,7 @@ import { Textarea } from '@/components/Textarea';
 import { AI_PURPOSES, MEAL_STYLE_LABEL, MEAL_STYLES, PURPOSE_LABEL, RECIPE_TYPES, TYPE_LABEL, type AiPurpose } from '@/shared/labels';
 import { DEFAULT_PANTRY, DEFAULT_PANTRY_KEYS } from '@/shared/pantry';
 import { SECRET_KEYS, type AiModelOverrides, type HouseholdPrefs, type PublicSettingsDto, type SecretKey, type SettingsPutInput } from '@/shared/settings';
+import { GoogleConnectCard } from './GoogleConnectCard';
 import { PicnicConnectCard, type PicnicConnectCardProps } from './PicnicConnectCard';
 
 // Plain, JSON-serializable shape of src/server/integrations/ai/models.ts' AiModel —
@@ -28,6 +29,7 @@ export interface InstellingenFormProps {
   modelsByPurpose: Record<AiPurpose, ModelOption[]>;
   defaultModelIdByPurpose: Partial<Record<AiPurpose, string>>;
   initialPicnicStatus: PicnicConnectCardProps['initialStatus'];
+  initialGoogleStatus: { connected: boolean; calendarId: string | null };
 }
 
 type SecretDraft = Record<SecretKey, string | null>;
@@ -169,7 +171,13 @@ function SecretField({
   );
 }
 
-export function InstellingenForm({ initial, modelsByPurpose, defaultModelIdByPurpose, initialPicnicStatus }: InstellingenFormProps) {
+export function InstellingenForm({
+  initial,
+  modelsByPurpose,
+  defaultModelIdByPurpose,
+  initialPicnicStatus,
+  initialGoogleStatus,
+}: InstellingenFormProps) {
   const [prefs, setPrefs] = useState<HouseholdPrefs>(initial.householdPrefs);
   const [overrides, setOverrides] = useState<AiModelOverrides>(initial.aiModelOverrides);
   const [bringEmail, setBringEmail] = useState(initial.bringEmail);
@@ -382,6 +390,10 @@ export function InstellingenForm({ initial, modelsByPurpose, defaultModelIdByPur
 
       <Card title="Picnic" description="Voor het vullen van de winkelmand.">
         <PicnicConnectCard initialEmail={initial.picnicEmail} initialStatus={initialPicnicStatus} />
+      </Card>
+
+      <Card title="Google Agenda" description="Voor kook-voorbereidingen als afspraak in de agenda.">
+        <GoogleConnectCard initialConnected={initialGoogleStatus.connected} initialCalendarId={initial.googleCalendarId} />
       </Card>
 
       <Card title="Bring" description="Alternatief voor de boodschappenlijst.">

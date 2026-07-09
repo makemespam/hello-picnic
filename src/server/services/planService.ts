@@ -219,7 +219,14 @@ async function toPlanDto(planRow: PlanRow): Promise<PlanDto> {
   for (const mealRow of mealRows) {
     const recipe = await getRecipe(mealRow.recipeId);
     if (!recipe) continue; // defensive: FK guarantees this shouldn't happen
-    meals.push({ id: mealRow.id, slotIndex: mealRow.slotIndex, recipe, cookDate: mealRow.cookDate, approved: mealRow.approved });
+    meals.push({
+      id: mealRow.id,
+      slotIndex: mealRow.slotIndex,
+      recipe,
+      cookDate: mealRow.cookDate,
+      approved: mealRow.approved,
+      calendarEventId: mealRow.calendarEventId,
+    });
   }
 
   return {
@@ -528,6 +535,28 @@ export async function approveMeal(planId: number, mealId: number): Promise<PlanD
 
   const db = getDb();
   await db.update(planMeals).set({ approved: true }).where(and(eq(planMeals.id, mealId), eq(planMeals.planId, planId)));
+  return getPlan(planId);
+}
+
+/**
+ * PATCH /api/plans/:id/meals/:mealId (docs/workpackages/WP-12-google-calendar.md §3):
+ * day-assignment — writes or clears `cook_date`. Deliberately leaves `calendar_event_id`
+ * untouched: a meal that's already published and gets reassigned to a different day just
+ * needs its next "Zet in agenda" publish to pick up the new date (calendarService.
+ * publishPlan updates the existing event by id, never duplicates it).
+ */
+export async function setCookDate(planId: number, mealId: number, cookDate: string | null): Promise<PlanDto | null> {
+  const plan = await fetchPlanRow(planId);
+  if (!plan) return null;
+
+  const db = getDb();
+  const result = await db
+    .update(planMeals)
+    .set({ cookDate })
+    .where(and(eq(planMeals.id, mealId), eq(planMeals.planId, planId)))
+    .returning({ id: planMeals.id });
+  if (result.length === 0) throw new PlanServiceError('Maaltijd niet gevonden in dit weekmenu.');
+
   return getPlan(planId);
 }
 

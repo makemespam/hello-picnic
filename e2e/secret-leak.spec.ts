@@ -35,6 +35,13 @@ const API_ROUTES = [
   // WP-13: suggestions never carry a secret either, but it's a new response shape
   // worth crawling on principle (same rationale as /api/scans above).
   '/api/suggestions',
+  // WP-12: /api/google/status returns { connected, calendarId } only — no token. The
+  // calendarId itself is Google's opaque id, not a secret, but worth crawling since it's
+  // a new response shape. /api/calendar/calendars round-trips through the (fake) Google
+  // API; /api/calendar/freebusy needs a `week` query param to not 400.
+  '/api/google/status',
+  '/api/calendar/calendars',
+  '/api/calendar/freebusy?week=2026-07-06',
 ];
 
 // Every shell page (src/shared/labels.ts NAV_ITEMS) plus the settings, kosten and

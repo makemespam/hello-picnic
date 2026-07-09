@@ -6,12 +6,22 @@
 // slots server-side — this sheet just collects the same inputs either way).
 import { useEffect, useState } from 'react';
 import { Alert } from '@/components/Alert';
+import { Checkbox } from '@/components/Checkbox';
 import { Field } from '@/components/Field';
 import { PhotoFrame } from '@/components/PhotoFrame';
 import { Sheet } from '@/components/Sheet';
 import { Textarea } from '@/components/Textarea';
 import { cn } from '@/components/cn';
 import type { RecipeListItemDto } from '@/shared/recipes';
+
+function shortWeekdayLabel(dateKey: string): string {
+  const date = new Date(`${dateKey}T12:00:00`);
+  return new Intl.DateTimeFormat('nl-NL', { weekday: 'short' }).format(date);
+}
+
+interface FreeBusyResponse {
+  hints: { date: string; busy: boolean }[];
+}
 
 const MIN_SERVINGS = 1;
 const MAX_SERVINGS = 8;
@@ -37,6 +47,8 @@ export interface GeneratePlanSheetProps {
   onSubmit: (input: GeneratePlanInputPayload) => void;
   /** Top-3 Vandaag suggestion ids (docs/workpackages/WP-13-proactive-suggestions.md §5), for the "Verras ons" quick action. */
   suggestedRecipeIds?: number[];
+  /** Europe/Amsterdam "today" (YYYY-MM-DD) — anchors the "Check agenda" toggle's freebusy query (docs/workpackages/WP-12-google-calendar.md §4). */
+  todayKey: string;
 }
 
 function Stepper({
@@ -93,11 +105,15 @@ export function GeneratePlanSheet({
   error,
   onSubmit,
   suggestedRecipeIds = [],
+  todayKey,
 }: GeneratePlanSheetProps) {
   const [servings, setServings] = useState(defaultServings);
   const [mealCount, setMealCount] = useState(defaultMealCount);
   const [preferences, setPreferences] = useState('');
   const [selectedLibraryIds, setSelectedLibraryIds] = useState<number[]>([]);
+  const [checkAgenda, setCheckAgenda] = useState(false);
+  const [checkingAgenda, setCheckingAgenda] = useState(false);
+  const [busyDayLabels, setBusyDayLabels] = useState<string[] | null>(null);
 
   // Reset the form to fresh defaults every time the sheet opens (docs/DESIGN_PRINCIPLES.md
   // §1.5: never leave stale state from a previous open behind).
@@ -107,8 +123,29 @@ export function GeneratePlanSheet({
       setMealCount(defaultMealCount);
       setPreferences('');
       setSelectedLibraryIds([]);
+      setCheckAgenda(false);
+      setBusyDayLabels(null);
     }
   }, [open, defaultServings, defaultMealCount]);
+
+  // docs/workpackages/WP-12-google-calendar.md §4: "generation sheet gains 'Check
+  // agenda' toggle -> GET /api/calendar/freebusy?week". Assistive-only preview here —
+  // the actual per-meal day-picker (WeekplanView/PlanMealCard) always shows the same
+  // hints once a plan exists, toggle or not.
+  async function handleToggleCheckAgenda(checked: boolean) {
+    setCheckAgenda(checked);
+    if (!checked || busyDayLabels !== null) return;
+    setCheckingAgenda(true);
+    try {
+      const res = await fetch(`/api/calendar/freebusy?week=${encodeURIComponent(todayKey)}`);
+      if (!res.ok) return;
+      const data = (await res.json()) as FreeBusyResponse;
+      const labels = data.hints.filter((hint) => hint.busy).map((hint) => shortWeekdayLabel(hint.date));
+      setBusyDayLabels(labels);
+    } finally {
+      setCheckingAgenda(false);
+    }
+  }
 
   function toggleLibraryPick(id: number) {
     setSelectedLibraryIds((current) => {
@@ -146,6 +183,21 @@ export function GeneratePlanSheet({
         <Field label="Wensen" htmlFor="plan-wishes" hint="Bijvoorbeeld: graag iets met pasta, of geen vis deze week.">
           <Textarea id="plan-wishes" value={preferences} onChange={(event) => setPreferences(event.target.value)} />
         </Field>
+
+        <div>
+          <Checkbox
+            label="Check agenda voor drukke avonden"
+            checked={checkAgenda}
+            disabled={checkingAgenda}
+            onChange={(event) => handleToggleCheckAgenda(event.target.checked)}
+          />
+          {checkingAgenda && <p className="mt-1 text-xs text-ink-muted">Agenda controleren…</p>}
+          {checkAgenda && !checkingAgenda && busyDayLabels !== null && (
+            <p className="mt-1 text-xs text-ink-muted">
+              {busyDayLabels.length > 0 ? `Drukke avonden deze week: ${busyDayLabels.join(', ')}.` : 'Geen drukke avonden gevonden deze week.'}
+            </p>
+          )}
+        </div>
 
         {libraryRecipes.length > 0 && (
           <div>

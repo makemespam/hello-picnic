@@ -42,3 +42,14 @@ export const addSuggestionSchema = z.object({
 });
 
 export type AddSuggestionInput = z.infer<typeof addSuggestionSchema>;
+
+// WP-12 (docs/workpackages/WP-12-google-calendar.md §3): PATCH /api/plans/:id/meals/:mealId
+// day-assignment — writes/clears `plan_meals.cook_date`. `null` explicitly unassigns a day.
+export const patchMealSchema = z.object({
+  cookDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Ongeldige datum (verwacht YYYY-MM-DD)')
+    .nullable(),
+});
+
+export type PatchMealInput = z.infer<typeof patchMealSchema>;

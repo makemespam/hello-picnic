@@ -96,6 +96,11 @@ export const settingsPutSchema = z.object({
   aiModelOverrides: aiModelOverridesSchema.optional(),
   picnicEmail: z.string().optional(),
   bringEmail: z.string().optional(),
+  // WP-12 (docs/workpackages/WP-12-google-calendar.md §5): id of the Google calendar
+  // events get published to, picked from GET /api/calendar/calendars. Plain (non-secret)
+  // string — same tri-state-free pattern as picnicEmail/bringEmail above (calendar ids
+  // aren't secrets, they're just opaque Google identifiers).
+  googleCalendarId: z.string().optional(),
   anthropicApiKey: secretFieldSchema,
   openaiApiKey: secretFieldSchema,
   geminiApiKey: secretFieldSchema,
@@ -104,7 +109,7 @@ export const settingsPutSchema = z.object({
   bringPassword: secretFieldSchema,
   imageOpenaiApiKey: secretFieldSchema,
   imageGeminiApiKey: secretFieldSchema,
-} satisfies Record<'householdPrefs' | 'aiModelOverrides' | 'picnicEmail' | 'bringEmail' | SecretKey, z.ZodTypeAny>);
+} satisfies Record<'householdPrefs' | 'aiModelOverrides' | 'picnicEmail' | 'bringEmail' | 'googleCalendarId' | SecretKey, z.ZodTypeAny>);
 
 export type SettingsPutInput = z.infer<typeof settingsPutSchema>;
 
@@ -118,6 +123,8 @@ export interface PublicSettingsDto extends SecretConfiguredFlags {
   aiModelOverrides: AiModelOverrides;
   picnicEmail: string;
   bringEmail: string;
+  /** WP-12: id of the connected Google calendar events publish to; '' when none is chosen yet. */
+  googleCalendarId: string;
 }
 
 export const MEAL_STYLE_OPTIONS: MealStyle[] = MEAL_STYLES;

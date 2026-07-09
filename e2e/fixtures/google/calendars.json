@@ -1,0 +1,6 @@
+{
+  "items": [
+    { "id": "primary", "summary": "gezin@example.com", "primary": true },
+    { "id": "familie-agenda@group.calendar.google.com", "summary": "Familie" }
+  ]
+}

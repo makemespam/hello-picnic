@@ -124,6 +124,18 @@ async function putPlainString(key: string, value: string): Promise<void> {
   await writeRaw(key, value, false);
 }
 
+// WP-12 (docs/workpackages/WP-12-google-calendar.md §5): which Google calendar
+// publishPlan() writes events to — same plain-string pattern as picnicEmail/bringEmail.
+const GOOGLE_CALENDAR_ID_KEY = 'googleCalendarId';
+
+export async function getGoogleCalendarId(): Promise<string> {
+  return getPlainString(GOOGLE_CALENDAR_ID_KEY);
+}
+
+export async function putGoogleCalendarId(calendarId: string): Promise<void> {
+  await putPlainString(GOOGLE_CALENDAR_ID_KEY, calendarId);
+}
+
 // --- Secrets -------------------------------------------------------------------
 
 export async function isSecretConfigured(key: SecretKey): Promise<boolean> {
@@ -153,11 +165,12 @@ export async function getDecryptedSecret(key: SecretKey): Promise<string | undef
 // --- Public (client-safe) view --------------------------------------------------
 
 export async function getPublicSettings(): Promise<PublicSettingsDto> {
-  const [householdPrefs, aiModelOverrides, picnicEmail, bringEmail, configuredFlags] = await Promise.all([
+  const [householdPrefs, aiModelOverrides, picnicEmail, bringEmail, googleCalendarId, configuredFlags] = await Promise.all([
     getHouseholdPrefs(),
     getAiModelOverrides(),
     getPlainString('picnicEmail'),
     getPlainString('bringEmail'),
+    getGoogleCalendarId(),
     Promise.all(SECRET_KEYS.map((key) => isSecretConfigured(key))),
   ]);
 
@@ -165,7 +178,7 @@ export async function getPublicSettings(): Promise<PublicSettingsDto> {
     SECRET_KEYS.map((key, index) => [`${key}Configured`, configuredFlags[index]])
   ) as SecretConfiguredFlags;
 
-  return { householdPrefs, aiModelOverrides, picnicEmail, bringEmail, ...secretFlags };
+  return { householdPrefs, aiModelOverrides, picnicEmail, bringEmail, googleCalendarId, ...secretFlags };
 }
 
 /**
@@ -180,6 +193,7 @@ export async function putSettings(input: SettingsPutInput): Promise<PublicSettin
   if (input.aiModelOverrides) tasks.push(putAiModelOverrides(input.aiModelOverrides));
   if (input.picnicEmail !== undefined) tasks.push(putPlainString('picnicEmail', input.picnicEmail));
   if (input.bringEmail !== undefined) tasks.push(putPlainString('bringEmail', input.bringEmail));
+  if (input.googleCalendarId !== undefined) tasks.push(putGoogleCalendarId(input.googleCalendarId));
 
   for (const key of SECRET_KEYS) {
     const value = input[key];

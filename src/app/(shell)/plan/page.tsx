@@ -2,6 +2,7 @@
 // this Server Component reads via the service layer directly, same pattern as
 // recepten/page.tsx). Client interaction (generate/approve/replace/finalize round
 // trips) lives in WeekplanView.
+import { amsterdamDateKey } from '@/server/integrations/ai/prompts/plan';
 import { getLatestPlan } from '@/server/services/planService';
 import { listRecipes } from '@/server/services/recipeService';
 import { getHouseholdPrefs } from '@/server/services/settingsService';
@@ -50,6 +51,7 @@ export default async function WeekplanPage() {
       defaultMealCount={prefs.mealCount}
       costSummary={costSummary}
       suggestedRecipeIds={suggestions.items.slice(0, 3).map((item) => item.recipe.id)}
+      todayKey={amsterdamDateKey(new Date())}
     />
   );
 }

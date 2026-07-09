@@ -140,6 +140,8 @@ Alternative (owner may buy a mini-PC): identical compose stack runs on any Linux
 
 | WP-13 | ✅ done | 2026-07-11 | Sonnet builder + architect (467 unit + 72 e2e green). Rule-based suggestion scorer (rating/favorite/card-bonus/seasonality/recency/variety-cap) with optional LLM rerank+teasers and proven graceful fallback; best_months seasonality column + batch tagging at recipe create + resumable backfill; 6-day cache in settings invalidated on plan finalize; Vandaag 'Uit jullie keuken' with one-tap add-to-plan; 'Verras ons uit de bibliotheek' in the generate sheet. Accepted deviations: new-draft-at-default-mealCount semantics; stateful e2e gated to one project (shared-household race, documented); suggest/season schemas share one purpose bucket. Architect hardened cold-start login timeout for CI. |
 
+| WP-12 | ✅ done | 2026-07-11 | Sonnet builder + architect (520 unit + 71 e2e green). Google OAuth (state-cookie CSRF-validated, tokens encrypted, proactive refresh), calendarService.publishPlan ('🍳 {titel} bereiden' at dinnerTime−cook time, DST-tested around both 2026 transitions, idempotent re-publish updates events), day-assignment UI + published indicators, freebusy 'druk' hints, FAKE_GOOGLE fixture mode, deploy/GOOGLE_OAUTH.md console walkthrough. Owner deploy-time task: create the GCP OAuth client and run a real connect round. |
+
 ## 10. Risks
 
 | Risk | Mitigation |

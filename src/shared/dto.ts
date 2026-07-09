@@ -87,6 +87,8 @@ export interface PlanMealDto {
   recipe: RecipeListItemDto;
   cookDate: string | null;
   approved: boolean;
+  /** WP-12 (docs/workpackages/WP-12-google-calendar.md §3): set once this meal's prep event has been published to Google Calendar. */
+  calendarEventId: string | null;
 }
 
 export interface PlanDto {
