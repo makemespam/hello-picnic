@@ -118,7 +118,13 @@ Primary: **Leaseweb VPS** (shared with bookkeeping software) — see `docs/ARCHI
 
 Alternative (owner may buy a mini-PC): identical compose stack runs on any Linux box; only the Caddy hostname changes. No code impact — this is intentionally a pure infra swap.
 
-## 9. Risks
+## 9. Progress
+
+| WP | Status | Date | Notes |
+|---|---|---|---|
+| WP-01 | ✅ done | 2026-07-11 | Built by architect. Deviation: session-bound to branch `claude/meal-planner-app-2cfHx`, so WPs land as one commit per WP on that branch instead of branch-per-WP. shadcn/ui CLI skipped — same pattern hand-rolled on Radix in WP-02. |
+
+## 10. Risks
 
 | Risk | Mitigation |
 |---|---|

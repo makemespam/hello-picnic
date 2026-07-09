@@ -1,18 +1,25 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
+import { Inter } from 'next/font/google';
 import './globals.css';
-import Navigation from '@/components/Navigation';
+
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
   title: 'Hello Picnic',
-  description: 'Slimme maaltijdplanner met Picnic-integratie',
+  description: 'Slimme maaltijdplanner voor het gezin — weekmenu, boodschappen en agenda in één.',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#067A46',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="nl">
-      <body className="min-h-screen">
-        <Navigation />
-        <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+    <html lang="nl" className={inter.variable}>
+      <body className="min-h-screen bg-background font-sans text-ink antialiased">
+        {children}
       </body>
     </html>
   );

@@ -1,0 +1,33 @@
+# Production compose for the Leaseweb VPS (docs/ARCHITECTURE.md §8).
+# Postgres is shared VPS infrastructure on the external `shared_infra` network —
+# see README.md in this directory for the one-time role/database setup.
+services:
+  app:
+    image: ghcr.io/makemespam/hello-picnic:latest
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - hp_data:/data
+    networks:
+      - default
+      - shared_infra
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    networks:
+      - default
+
+volumes:
+  hp_data:
+  caddy_data:
+
+networks:
+  shared_infra:
+    external: true
