@@ -179,6 +179,13 @@ export const recipes = pgTable(
     // only its provenance link is cleared.
     cardScanId: integer('card_scan_id').references((): AnyPgColumn => cardScans.id, { onDelete: 'set null' }),
     nutritionJson: jsonb('nutrition_json').$type<Record<string, unknown>>(),
+    // WP-13 (docs/workpackages/WP-13-proactive-suggestions.md §2): 1-12 month numbers
+    // this recipe is at its seasonal best, derived by a cheap LLM batch call (never
+    // guessed in code) at recipe creation (scan approve / AI plan save) or the
+    // /api/recipes/backfill-seasons batch action. Null = not computed yet (recipe
+    // predates this feature or the LLM call was skipped) — suggestionService's scorer
+    // simply awards no seasonal bonus in that case, never blocking on it.
+    bestMonths: jsonb('best_months').$type<number[]>(),
     status: recipeStatusEnum('status').notNull().default('active'),
     rating: integer('rating').notNull().default(0),
     favorite: boolean('favorite').notNull().default(false),

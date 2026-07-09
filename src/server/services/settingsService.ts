@@ -17,6 +17,7 @@ import {
   SECRET_KEYS,
   aiModelOverridesSchema,
   householdPrefsSchema,
+  suggestionsCacheSchema,
   type AiModelOverrides,
   type HouseholdPrefs,
   type HouseholdPrefsPatch,
@@ -24,10 +25,12 @@ import {
   type SecretConfiguredFlags,
   type SecretKey,
   type SettingsPutInput,
+  type SuggestionsCache,
 } from '@/shared/settings';
 
 const HOUSEHOLD_PREFS_KEY = 'householdPrefs';
 const AI_MODEL_OVERRIDES_KEY = 'aiModelOverrides';
+const SUGGESTIONS_CACHE_KEY = 'suggestionsCache';
 
 interface SettingsRow {
   valueJson: unknown;
@@ -90,6 +93,24 @@ export async function putAiModelOverrides(patch: AiModelOverrides): Promise<AiMo
   const merged = aiModelOverridesSchema.parse({ ...current, ...patch });
   await writeRaw(AI_MODEL_OVERRIDES_KEY, merged, false);
   return merged;
+}
+
+// --- Vandaag suggestions cache (docs/workpackages/WP-13-proactive-suggestions.md §3) --
+
+export async function getSuggestionsCache(): Promise<SuggestionsCache | null> {
+  const row = await readRaw(SUGGESTIONS_CACHE_KEY);
+  if (!row) return null;
+  const parsed = suggestionsCacheSchema.safeParse(row.valueJson);
+  return parsed.success ? parsed.data : null;
+}
+
+export async function putSuggestionsCache(cache: SuggestionsCache): Promise<void> {
+  await writeRaw(SUGGESTIONS_CACHE_KEY, cache, false);
+}
+
+/** Forces the next GET /api/suggestions read to recompute (docs/workpackages/WP-13 §3: "invalidate ... after a plan finalize"). */
+export async function clearSuggestionsCache(): Promise<void> {
+  await deleteRaw(SUGGESTIONS_CACHE_KEY);
 }
 
 // --- Plain (non-secret) string settings, e.g. Picnic/Bring account emails ------

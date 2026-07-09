@@ -7,6 +7,9 @@ import path from 'path';
 const authFile = path.join(__dirname, '.auth/user.json');
 
 setup('log in as het gezin', async ({ page }) => {
+  // Cold dev-server first-compile of /login + / under full-suite load can exceed the
+  // default 30s test timeout (observed in sandbox and applies to CI cold starts too).
+  setup.setTimeout(90_000);
   await page.goto('/login');
   await page.getByLabel('E-mailadres').fill('gezin@example.com');
   await page.getByLabel('Wachtwoord').fill('proefkonijn123');

@@ -138,6 +138,8 @@ Alternative (owner may buy a mini-PC): identical compose stack runs on any Linux
 
 | WP-08 | ✅ done | 2026-07-11 | Sonnet builder + architect (437 unit + 70 e2e green). card_scans schema, cardExtractionSchema with per-field confidence + issues, vision images param on callStructured (backward-compatible, all 4 providers), scanService (EXIF-safe upload, pairing, batch extraction resumable from DB statuses, rescaling cardServings→household in code, Levenshtein duplicate detector with confirm dialog), /meer/scannen UI (upload/pair/progress/review with low-confidence flagging, bulk approve high-confidence). Accepted deviations: scan_card default provisionally wired to verified gemini-3.5-flash (documented in models.ts — live Dutch-OCR eval is an owner deploy-time task); synthetic fixture card photos (FAKE_AI supplies extraction content). |
 
+| WP-13 | ✅ done | 2026-07-11 | Sonnet builder + architect (467 unit + 72 e2e green). Rule-based suggestion scorer (rating/favorite/card-bonus/seasonality/recency/variety-cap) with optional LLM rerank+teasers and proven graceful fallback; best_months seasonality column + batch tagging at recipe create + resumable backfill; 6-day cache in settings invalidated on plan finalize; Vandaag 'Uit jullie keuken' with one-tap add-to-plan; 'Verras ons uit de bibliotheek' in the generate sheet. Accepted deviations: new-draft-at-default-mealCount semantics; stateful e2e gated to one project (shared-household race, documented); suggest/season schemas share one purpose bucket. Architect hardened cold-start login timeout for CI. |
+
 ## 10. Risks
 
 | Risk | Mitigation |

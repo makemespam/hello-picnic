@@ -32,6 +32,9 @@ const API_ROUTES = [
   // WP-08: the scan board never carries a secret either, but it's a new response shape
   // worth crawling on principle.
   '/api/scans',
+  // WP-13: suggestions never carry a secret either, but it's a new response shape
+  // worth crawling on principle (same rationale as /api/scans above).
+  '/api/suggestions',
 ];
 
 // Every shell page (src/shared/labels.ts NAV_ITEMS) plus the settings, kosten and

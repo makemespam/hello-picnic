@@ -78,4 +78,44 @@ test('genereren, goedkeuren, vervangen en vastleggen van een weekmenu; Vandaag t
   await expect(page.getByText(/Start met koken om \d{2}:\d{2}/)).toBeVisible();
   await snap(page, testInfo, 'vandaag');
   await checkA11y(page);
+
+  // docs/workpackages/WP-13-proactive-suggestions.md §4/§5: "Uit jullie keuken"
+  // one-tap "→ Zet in weekplan" + the generation sheet's "Verras ons uit de
+  // bibliotheek" quick action. Appended to this same test rather than a separate spec
+  // file, and gated to a single project: unlike every step above (each always scoped
+  // to the plan.id this project itself created/finalized), POST /api/plans/
+  // add-suggestion operates on "whichever draft plan is currently latest" — a
+  // household-wide, unscoped read — so running it from both the mobile and desktop
+  // projects at once (this same spec, concurrently, docs/ARCHITECTURE.md §3 "single
+  // household") can have one project's tap land in the other project's still-in-
+  // progress draft. Running it once (mobile — 390px, the project docs/
+  // DESIGN_PRINCIPLES.md §1.2 calls the mobile-first baseline) keeps this deterministic
+  // without losing coverage of the feature itself.
+  if (testInfo.project.name === 'mobile') {
+    const suggestionsSection = page.locator('section', { has: page.getByRole('heading', { level: 2, name: 'Uit jullie keuken' }) });
+    await expect(suggestionsSection).toBeVisible();
+    const firstSuggestion = suggestionsSection.getByTestId('suggestion-card').first();
+    const suggestedTitle = await firstSuggestion.getAttribute('data-recipe-title');
+    expect(suggestedTitle).toBeTruthy();
+    // (e2e/vandaag.spec.ts's own read-only test owns the 'vandaag-suggesties' screenshot.)
+
+    // No draft plan exists right now (the plan above was just finalized) — one tap
+    // starts a fresh draft pre-filled with the tapped suggestion and navigates there.
+    await firstSuggestion.getByRole('button', { name: '→ Zet in weekplan' }).click();
+    await expect(page).toHaveURL(/\/plan$/);
+    const escapedTitle = suggestedTitle!.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    await expect(page.getByRole('link', { name: new RegExp(escapedTitle) })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Opnieuw genereren' }).first().click();
+    const surpriseSheet = page.getByRole('dialog');
+    await expect(surpriseSheet.getByRole('heading', { level: 2, name: 'Opnieuw genereren' })).toBeVisible();
+
+    const surpriseButton = surpriseSheet.getByRole('button', { name: 'Verras ons uit de bibliotheek' });
+    await expect(surpriseButton).toBeVisible();
+    await surpriseButton.click();
+    await expect(surpriseSheet.locator('button[aria-pressed="true"]')).toHaveCount(3);
+
+    await snap(page, testInfo, 'plan-verras-ons');
+    await checkA11y(page);
+  }
 });

@@ -24,6 +24,7 @@ import type { CardScanDto, PairScansInput, ScanApproveInput, ScanApproveResultDt
 import { titleSimilarity } from '@/shared/titleSimilarity';
 import { attachCardScanPhoto, createRecipe, listActiveTitles } from './recipeService';
 import { getImageRowsByIds, imageUrl, readImageDerivative, saveScanPhoto, type ImageRow } from './imageService';
+import { computeBestMonthsForRecipe } from './seasonService';
 import { getHouseholdPrefs } from './settingsService';
 
 export class ScanServiceError extends Error {
@@ -302,6 +303,9 @@ export async function approveScan(id: number, input: ScanApproveInput): Promise<
   const createInput: RecipeCreateInput = { ...recipeFields, source: 'card' };
   const recipe = await createRecipe(createInput);
   await attachCardScanPhoto(recipe.id, row.frontImageId, row.id);
+  // docs/workpackages/WP-13-proactive-suggestions.md §2: seasonality tag at recipe
+  // create time — graceful skip on any AI error, never blocks the approve flow.
+  await computeBestMonthsForRecipe({ id: recipe.id, title: recipe.title, type: recipe.type, description: recipe.description });
 
   const db = getDb();
   await db.update(cardScans).set({ status: 'approved', error: null }).where(eq(cardScans.id, id));

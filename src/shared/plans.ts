@@ -34,3 +34,11 @@ export const approveMealSchema = z.object({
 });
 
 export type ApproveMealInput = z.infer<typeof approveMealSchema>;
+
+// docs/workpackages/WP-13-proactive-suggestions.md §4: Vandaag's one-tap "→ Zet in
+// weekplan" action — POST /api/plans/add-suggestion.
+export const addSuggestionSchema = z.object({
+  recipeId: z.number().int().positive(),
+});
+
+export type AddSuggestionInput = z.infer<typeof addSuggestionSchema>;

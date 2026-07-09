@@ -20,6 +20,8 @@ export interface WeekplanViewProps {
   defaultServings: number;
   defaultMealCount: number;
   costSummary?: CostSummary | null;
+  /** Top-3 Vandaag suggestion ids (docs/workpackages/WP-13-proactive-suggestions.md §5), for the sheet's "Verras ons" quick action. */
+  suggestedRecipeIds?: number[];
 }
 
 /** Dutch short day label ("wo 15 juli", docs/DESIGN_PRINCIPLES.md §6) for weekStart + a slot offset. */
@@ -37,7 +39,14 @@ async function postJson(url: string, body?: unknown): Promise<Response> {
   });
 }
 
-export function WeekplanView({ initialPlan, libraryRecipes, defaultServings, defaultMealCount, costSummary }: WeekplanViewProps) {
+export function WeekplanView({
+  initialPlan,
+  libraryRecipes,
+  defaultServings,
+  defaultMealCount,
+  costSummary,
+  suggestedRecipeIds,
+}: WeekplanViewProps) {
   const router = useRouter();
   const [plan, setPlan] = useState(initialPlan);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -178,6 +187,7 @@ export function WeekplanView({ initialPlan, libraryRecipes, defaultServings, def
         submitting={generating}
         error={generateError}
         onSubmit={handleGenerate}
+        suggestedRecipeIds={suggestedRecipeIds}
       />
     </div>
   );

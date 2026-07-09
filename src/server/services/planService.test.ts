@@ -10,11 +10,13 @@ import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { encryptSecret } from '@/server/auth/crypto';
 import { getDb } from '@/server/db/client';
-import { integrationTokens, llmCalls, planMeals, plans, recipeIngredients, recipes } from '@/server/db/schema';
+import { integrationTokens, llmCalls, planMeals, plans, recipeIngredients, recipes, settings } from '@/server/db/schema';
 import { FAKE_EXPIRED_TOKEN } from '@/server/integrations/picnic/fakePicnic';
 import { createRecipe, getRecipe, updateRecipe } from './recipeService';
+import { getSuggestionsCache, putSuggestionsCache } from './settingsService';
 import { getShoppingList } from './shoppingService';
 import {
+  addSuggestionToPlan,
   approveMeal,
   finalize,
   generate,
@@ -33,6 +35,7 @@ beforeEach(async () => {
   await db.delete(recipes);
   await db.delete(llmCalls);
   await db.delete(integrationTokens).where(eq(integrationTokens.provider, 'picnic'));
+  await db.delete(settings);
 });
 
 function minimalRecipe(title: string, source: RecipeCreateInput['source'] = 'manual'): RecipeCreateInput {
@@ -201,6 +204,63 @@ describe('planService.regenerate', () => {
     const stillThere = regenerated!.meals.find((meal) => meal.id === approvedMeal.id);
     expect(stillThere?.recipe.id).toBe(idA);
     expect(stillThere?.approved).toBe(true);
+  });
+});
+
+describe('planService.finalize — suggestions cache invalidation (WP-13 §3)', () => {
+  it('clears a cached suggestions list on finalize', async () => {
+    const idLibrary = await seedLibraryRecipe('Bibliotheekgerecht finalize-cache', 5);
+    await putSuggestionsCache({ computedAt: new Date().toISOString(), items: [{ recipeId: idLibrary, teaser: null }] });
+    expect(await getSuggestionsCache()).not.toBeNull();
+
+    const plan = await generate({ mealCount: 1, servings: 4, libraryRecipeIds: [idLibrary] });
+    await finalize(plan.id);
+
+    expect(await getSuggestionsCache()).toBeNull();
+  });
+});
+
+describe('planService.addSuggestionToPlan (WP-13 §4)', () => {
+  it('starts a new draft plan (household default mealCount) with just slot 0 filled when there is no draft plan', async () => {
+    const recipe = await seedLibraryRecipe('Suggestie zonder concept-plan', 4);
+    const plan = await addSuggestionToPlan(recipe, new Date('2026-07-09T10:00:00+02:00'));
+
+    expect(plan.status).toBe('draft');
+    // Household default mealCount (DEFAULT_HOUSEHOLD_PREFS.mealCount = 4), not a bare
+    // 1 — a literal 1-meal plan would otherwise poison every later "Genereer weekmenu"
+    // sheet's own mealCount default (docs/workpackages/WP-13 §4, planService.ts comment).
+    expect(plan.mealCount).toBe(4);
+    expect(plan.meals).toHaveLength(1);
+    expect(plan.meals[0]?.recipe.id).toBe(recipe);
+    expect(plan.meals[0]?.slotIndex).toBe(0);
+  });
+
+  it('fills the first empty slot of an existing draft plan', async () => {
+    const idA = await seedLibraryRecipe('Concept-plan gerecht A', 5);
+    const idB = await seedLibraryRecipe('Concept-plan gerecht B', 4);
+    const suggestion = await seedLibraryRecipe('Suggestie voor lege slot', 3);
+
+    // mealCount=3 but only 2 slots filled -> slot 2 (0-based) is empty.
+    const plan = await generate({ mealCount: 2, servings: 4, libraryRecipeIds: [idA, idB] });
+    const db = getDb();
+    await db.update(plans).set({ mealCount: 3 }).where(eq(plans.id, plan.id));
+
+    const updated = await addSuggestionToPlan(suggestion);
+    expect(updated.mealCount).toBe(3);
+    expect(updated.meals.map((m) => m.recipe.id).sort((a, b) => a - b)).toEqual([idA, idB, suggestion].sort((a, b) => a - b));
+  });
+
+  it('appends and grows mealCount when every slot is already filled', async () => {
+    const idA = await seedLibraryRecipe('Vol concept-plan gerecht', 5);
+    const suggestion = await seedLibraryRecipe('Suggestie voor vol plan', 3);
+
+    const plan = await generate({ mealCount: 1, servings: 4, libraryRecipeIds: [idA] });
+    expect(plan.meals).toHaveLength(1);
+
+    const updated = await addSuggestionToPlan(suggestion);
+    expect(updated.mealCount).toBe(2);
+    expect(updated.meals).toHaveLength(2);
+    expect(updated.meals.map((m) => m.recipe.id)).toContain(suggestion);
   });
 });
 

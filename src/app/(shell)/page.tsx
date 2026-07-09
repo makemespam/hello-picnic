@@ -1,9 +1,9 @@
-// Vandaag (home) page v1 (docs/workpackages/WP-06-planner-v2.md §6): tonight's meal
-// from the latest finalized plan (cook_date == today, else the first meal — cook_date
-// is only ever set once the Google Calendar integration lands in a later WP) with
-// "start met koken om HH:MM" back-calculated from the household's dinnerTime setting.
-// Library suggestions ("Uit jullie kaarten") from docs/DESIGN_PRINCIPLES.md §5 are a
-// later slice — out of this WP's explicit v1 scope.
+// Vandaag (home) page (docs/workpackages/WP-06-planner-v2.md §6, docs/workpackages/
+// WP-13-proactive-suggestions.md §4): tonight's meal from the latest finalized plan
+// (cook_date == today, else the first meal — cook_date is only ever set once the
+// Google Calendar integration lands in a later WP) with "start met koken om HH:MM"
+// back-calculated from the household's dinnerTime setting, plus "Uit jullie keuken" —
+// 3 proactive library suggestions with one-tap "zet in weekplan".
 import Link from 'next/link';
 import { EmptyState } from '@/components/EmptyState';
 import { PageHeader } from '@/components/PageHeader';
@@ -12,6 +12,8 @@ import { RecipeTypeBadge } from '@/components/RecipeTypeBadge';
 import { amsterdamDateKey } from '@/server/integrations/ai/prompts/plan';
 import { getLatestFinalizedPlan } from '@/server/services/planService';
 import { getHouseholdPrefs } from '@/server/services/settingsService';
+import { getSuggestions } from '@/server/services/suggestionService';
+import { SuggestionsSection } from './_components/SuggestionsSection';
 
 // Depends on "today" and the latest finalized plan — both change without any
 // searchParams/cookies signal that would otherwise force dynamic rendering, so
@@ -32,16 +34,20 @@ function computeStartTime(dinnerTime: string, prepMinutes: number): string {
 }
 
 export default async function VandaagPage() {
-  const [plan, prefs] = await Promise.all([getLatestFinalizedPlan(), getHouseholdPrefs()]);
+  const [plan, prefs, suggestions] = await Promise.all([getLatestFinalizedPlan(), getHouseholdPrefs(), getSuggestions()]);
 
   if (!plan || plan.meals.length === 0) {
     return (
-      <EmptyState
-        illustration="🍽️"
-        title="Nog geen etentje gepland"
-        description="Zodra je een weekmenu hebt vastgelegd, zie je hier wat jullie vanavond eten."
-        action={{ label: 'Naar weekplan', href: '/plan' }}
-      />
+      <div className="flex flex-col gap-6">
+        <PageHeader title="Vandaag" description="Vanavond op tafel." />
+        <EmptyState
+          illustration="🍽️"
+          title="Nog geen etentje gepland"
+          description="Zodra je een weekmenu hebt vastgelegd, zie je hier wat jullie vanavond eten."
+          action={{ label: 'Naar weekplan', href: '/plan' }}
+        />
+        <SuggestionsSection suggestions={suggestions} />
+      </div>
     );
   }
 
@@ -64,6 +70,8 @@ export default async function VandaagPage() {
           <p className="text-sm font-semibold text-primary">Start met koken om {startTime}</p>
         </div>
       </Link>
+
+      <SuggestionsSection suggestions={suggestions} />
     </div>
   );
 }

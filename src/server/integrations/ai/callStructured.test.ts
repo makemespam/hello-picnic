@@ -10,7 +10,7 @@ import { APICallError, generateObject, NoObjectGeneratedError } from 'ai';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getDb } from '@/server/db/client';
 import { llmCalls, settings } from '@/server/db/schema';
-import { pingSchema } from '@/shared/ai-schemas';
+import { pingSchema, suggestSchema } from '@/shared/ai-schemas';
 import { putAiModelOverrides } from '@/server/services/settingsService';
 import { callStructured } from './callStructured';
 import { AiConfigError, AiProviderError, AiTimeoutError, AiValidationError } from './errors';
@@ -355,13 +355,15 @@ describe('callStructured — FAKE_AI=1 mode', () => {
   });
 
   it('returns the fixture for the purpose without calling generateObject, and logs a ledger row', async () => {
-    const schema = pingSchema; // any real schema; purpose routing only needs a registered model
-    // suggest.json is `{ "teaser": "..." }` — use its own natural shape instead of pingSchema.
-    const suggestSchema = (await import('zod')).z.object({ teaser: (await import('zod')).z.string() });
-    void schema;
-
+    // suggest.json's `items[]` carry both `teaser` (suggestRank) and `bestMonths`
+    // (seasonBatch) fields — suggestionService.ts's header comment explains why the two
+    // schemas intentionally share one fixture/purpose. `suggestSchema` (real schema,
+    // not an ad-hoc one) only reads the `index`/`teaser` fields off it.
     const result = await callStructured({ purpose: 'suggest', schema: suggestSchema, system: 's', prompt: 'p' });
-    expect(result).toEqual(await readFixture('e2e/fixtures/ai/suggest.json'));
+    // `.parse()` strips the fixture's extra `bestMonths` fields (seasonBatchSchema's,
+    // not suggestSchema's) — compare against the schema's own parse of the fixture,
+    // not the raw file, so this assertion doesn't care which fields belong to which schema.
+    expect(result).toEqual(suggestSchema.parse(await readFixture('e2e/fixtures/ai/suggest.json')));
     expect(mockedGenerateObject).not.toHaveBeenCalled();
 
     const rows = await getDb().select().from(llmCalls);

@@ -5,7 +5,7 @@
 // Pages never call this directly (docs/ARCHITECTURE.md §1: "Page → route handler →
 // service") — only the /api/recipes route handlers do.
 
-import { and, desc, eq, gte, ilike, or, type SQL } from 'drizzle-orm';
+import { and, count, desc, eq, gte, ilike, inArray, isNull, or, type SQL } from 'drizzle-orm';
 import { getDb } from '@/server/db/client';
 import { HOUSEHOLD_ID, recipeIngredients, recipes } from '@/server/db/schema';
 import {
@@ -291,6 +291,95 @@ export async function attachCardScanPhoto(recipeId: number, frontImageId: number
   await attachImageToRecipe(frontImageId, recipeId);
   const db = getDb();
   await db.update(recipes).set({ heroImageId: frontImageId, cardScanId, updatedAt: new Date() }).where(eq(recipes.id, recipeId));
+}
+
+// --- Suggestions (WP-13, docs/workpackages/WP-13-proactive-suggestions.md) ----------
+
+/** Recipe DTOs for a set of ids, in the SAME order as `ids` — suggestionService hydrates its rule-based/LLM-ranked id list with this. */
+export async function listRecipesByIds(ids: number[]): Promise<RecipeListItemDto[]> {
+  if (ids.length === 0) return [];
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(recipes)
+    .where(and(eq(recipes.householdId, HOUSEHOLD_ID), inArray(recipes.id, ids)));
+  const rowsById = new Map(rows.map((row) => [row.id, row]));
+
+  const heroIds = rows.map((row) => row.heroImageId).filter((id): id is number => id !== null);
+  const imagesById = await getImageRowsByIds(heroIds);
+
+  const dtos = await Promise.all(
+    ids.map(async (id) => {
+      const row = rowsById.get(id);
+      if (!row) return null;
+      const imageRow = row.heroImageId !== null ? imagesById.get(row.heroImageId) : undefined;
+      const blurDataUrl = await blurDataUrlFromRow(imageRow);
+      return toListItemDto(row, imageRow, blurDataUrl);
+    })
+  );
+  return dtos.filter((dto): dto is RecipeListItemDto => dto !== null);
+}
+
+export interface SuggestionScoringRow {
+  id: number;
+  type: RecipeRow['type'];
+  rating: number;
+  favorite: boolean;
+  source: RecipeRow['source'];
+  bestMonths: number[] | null;
+  lastPlannedAt: Date | null;
+}
+
+/** Every active recipe's scoring inputs (docs/PROMPTS.md §6) — suggestionScoring.pickTopSuggestions consumes this. */
+export async function listActiveForScoring(): Promise<SuggestionScoringRow[]> {
+  const db = getDb();
+  return db
+    .select({
+      id: recipes.id,
+      type: recipes.type,
+      rating: recipes.rating,
+      favorite: recipes.favorite,
+      source: recipes.source,
+      bestMonths: recipes.bestMonths,
+      lastPlannedAt: recipes.lastPlannedAt,
+    })
+    .from(recipes)
+    .where(and(eq(recipes.householdId, HOUSEHOLD_ID), eq(recipes.status, 'active')))
+    .orderBy(recipes.id);
+}
+
+export interface SeasonTaggingCandidateRow {
+  id: number;
+  title: string;
+  type: RecipeRow['type'];
+  description: string;
+}
+
+/** Recipes still missing a `bestMonths` tag, oldest first — feeds seasonService's resumable backfill batch. */
+export async function listMissingBestMonths(limit: number): Promise<SeasonTaggingCandidateRow[]> {
+  const db = getDb();
+  return db
+    .select({ id: recipes.id, title: recipes.title, type: recipes.type, description: recipes.description })
+    .from(recipes)
+    .where(and(eq(recipes.householdId, HOUSEHOLD_ID), eq(recipes.status, 'active'), isNull(recipes.bestMonths)))
+    .orderBy(recipes.id)
+    .limit(limit);
+}
+
+/** Persists a recipe's LLM-derived seasonality tag (docs/workpackages/WP-13 §2) — never guessed in code. */
+export async function updateBestMonths(id: number, bestMonths: number[]): Promise<void> {
+  const db = getDb();
+  await db.update(recipes).set({ bestMonths, updatedAt: new Date() }).where(eq(recipes.id, id));
+}
+
+/** Exact count of active recipes still missing a `bestMonths` tag — drives the backfill endpoint's `remaining`. */
+export async function countMissingBestMonths(): Promise<number> {
+  const db = getDb();
+  const [row] = await db
+    .select({ value: count() })
+    .from(recipes)
+    .where(and(eq(recipes.householdId, HOUSEHOLD_ID), eq(recipes.status, 'active'), isNull(recipes.bestMonths)));
+  return row?.value ?? 0;
 }
 
 // --- Legacy-import lookup (scripts/import-legacy.ts idempotency) --------------------

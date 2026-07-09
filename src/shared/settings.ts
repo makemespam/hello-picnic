@@ -121,3 +121,23 @@ export interface PublicSettingsDto extends SecretConfiguredFlags {
 }
 
 export const MEAL_STYLE_OPTIONS: MealStyle[] = MEAL_STYLES;
+
+// --- Vandaag suggestions cache (docs/workpackages/WP-13-proactive-suggestions.md §3) --
+//
+// Stored under settings key 'suggestionsCache' (suggestionService.ts). Re-validated on
+// every read (jsonb is untyped at the DB level, same rationale as storedCardExtractionSchema
+// in ai-schemas.ts) so a hand-edited or pre-migration row can never silently corrupt
+// the Vandaag screen — a parse failure is treated as "no cache", forcing a recompute.
+export const suggestionsCacheItemSchema = z.object({
+  recipeId: z.number().int().positive(),
+  /** Dutch teaser line from the optional LLM call; null when that call was skipped/failed. */
+  teaser: z.string().max(90).nullable(),
+});
+
+export const suggestionsCacheSchema = z.object({
+  /** ISO timestamp — staleness is `computedAt` older than 6 days (docs/workpackages/WP-13 §3). */
+  computedAt: z.string(),
+  items: z.array(suggestionsCacheItemSchema),
+});
+
+export type SuggestionsCache = z.infer<typeof suggestionsCacheSchema>;

@@ -35,6 +35,8 @@ export interface GeneratePlanSheetProps {
   submitting: boolean;
   error: string | null;
   onSubmit: (input: GeneratePlanInputPayload) => void;
+  /** Top-3 Vandaag suggestion ids (docs/workpackages/WP-13-proactive-suggestions.md §5), for the "Verras ons" quick action. */
+  suggestedRecipeIds?: number[];
 }
 
 function Stepper({
@@ -90,6 +92,7 @@ export function GeneratePlanSheet({
   submitting,
   error,
   onSubmit,
+  suggestedRecipeIds = [],
 }: GeneratePlanSheetProps) {
   const [servings, setServings] = useState(defaultServings);
   const [mealCount, setMealCount] = useState(defaultMealCount);
@@ -124,6 +127,16 @@ export function GeneratePlanSheet({
     onSubmit({ servings, mealCount, preferences: preferences.trim() || undefined, libraryRecipeIds: selectedLibraryIds });
   }
 
+  // docs/workpackages/WP-13-proactive-suggestions.md §5: "quick action pre-selecting
+  // the top-3 suggested library recipes". Intersected with `libraryRecipes` (only
+  // active library recipes are pickable here) and capped at `mealCount`, same rule the
+  // manual picker already enforces.
+  function handleSurpriseUs() {
+    const libraryIds = new Set(libraryRecipes.map((recipe) => recipe.id));
+    const picks = suggestedRecipeIds.filter((id) => libraryIds.has(id)).slice(0, mealCount);
+    setSelectedLibraryIds(picks);
+  }
+
   return (
     <Sheet open={open} onClose={onClose} title={mode === 'regenerate' ? 'Opnieuw genereren' : 'Genereer weekmenu'}>
       <div className="flex flex-col gap-5">
@@ -136,9 +149,20 @@ export function GeneratePlanSheet({
 
         {libraryRecipes.length > 0 && (
           <div>
-            <p className="mb-2 text-sm font-medium text-ink">
-              Bibliotheekkeuzes <span className="text-ink-muted">({selectedLibraryIds.length}/{mealCount})</span>
-            </p>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-sm font-medium text-ink">
+                Bibliotheekkeuzes <span className="text-ink-muted">({selectedLibraryIds.length}/{mealCount})</span>
+              </p>
+              {suggestedRecipeIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleSurpriseUs}
+                  className="whitespace-nowrap rounded-full border border-primary/30 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary-soft"
+                >
+                  Verras ons uit de bibliotheek
+                </button>
+              )}
+            </div>
             <div className="grid max-h-72 grid-cols-3 gap-2 overflow-y-auto">
               {libraryRecipes.map((recipe) => {
                 const selected = selectedLibraryIds.includes(recipe.id);

@@ -6,6 +6,7 @@ import { getLatestPlan } from '@/server/services/planService';
 import { listRecipes } from '@/server/services/recipeService';
 import { getHouseholdPrefs } from '@/server/services/settingsService';
 import { getShoppingList } from '@/server/services/shoppingService';
+import { getSuggestions } from '@/server/services/suggestionService';
 import { recipeQuerySchema } from '@/shared/recipes';
 import type { CostSummary } from './_components/CostSummaryPanel';
 import { WeekplanView } from './_components/WeekplanView';
@@ -18,10 +19,11 @@ import { WeekplanView } from './_components/WeekplanView';
 export const dynamic = 'force-dynamic';
 
 export default async function WeekplanPage() {
-  const [plan, libraryRecipes, prefs] = await Promise.all([
+  const [plan, libraryRecipes, prefs, suggestions] = await Promise.all([
     getLatestPlan(),
     listRecipes(recipeQuerySchema.parse({ sort: 'rating' })),
     getHouseholdPrefs(),
+    getSuggestions(),
   ]);
 
   // Cost summary (docs/workpackages/WP-10-basket-optimizer.md §6: "€ total + €/portie
@@ -47,6 +49,7 @@ export default async function WeekplanPage() {
       defaultServings={prefs.servings}
       defaultMealCount={prefs.mealCount}
       costSummary={costSummary}
+      suggestedRecipeIds={suggestions.items.slice(0, 3).map((item) => item.recipe.id)}
     />
   );
 }

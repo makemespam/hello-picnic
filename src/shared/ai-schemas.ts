@@ -177,3 +177,42 @@ export const storedCardExtractionSchema = cardExtractionSchema.extend({
 });
 
 export type StoredCardExtraction = z.infer<typeof storedCardExtractionSchema>;
+
+// --- Suggestions (purpose: suggest) — docs/PROMPTS.md §6, docs/workpackages/WP-13 ----
+//
+// Two distinct schemas share the `suggest` purpose bucket (docs/PROMPTS.md §7 already
+// routes it to a cheap model; a builder must not add a new purpose/enum value for this
+// WP) rather than each getting a purpose of its own. Both address their candidate by
+// `index`: the 1-based position in the compact candidate list the prompt sent — same
+// "resolve by position, not by re-sending full data" pattern as `planSchema.libraryRef`
+// / `validateProductSchema.index` — so the model never has to echo back a DB id.
+
+// Re-ranks suggestionService's top-6 rule-based candidates and writes one Dutch teaser
+// line each (docs/PROMPTS.md §6: "one Dutch teaser line each ... ≤90 chars"). Fewer
+// than 6 items is fine (a short list still improves ordering); items referencing an
+// out-of-range index are dropped by suggestionService rather than failing the whole call.
+export const suggestRankItemSchema = z.object({
+  index: z.number().int().min(1),
+  teaser: z.string().min(1).max(90),
+});
+
+export const suggestSchema = z.object({
+  items: z.array(suggestRankItemSchema).min(1),
+});
+
+export type SuggestResult = z.infer<typeof suggestSchema>;
+
+// Batch month-tagging (docs/workpackages/WP-13 §2: "cheap LLM batch call" at recipe
+// create time, and the resumable /api/recipes/backfill-seasons action). One call can
+// tag 1 recipe (create-time hook) or many (backfill batch) — same schema either way.
+export const seasonBatchItemSchema = z.object({
+  index: z.number().int().min(1),
+  /** 1-12 month numbers this recipe is at its seasonal best; empty array = no strong season. */
+  bestMonths: z.array(z.number().int().min(1).max(12)).max(12),
+});
+
+export const seasonBatchSchema = z.object({
+  items: z.array(seasonBatchItemSchema).min(1),
+});
+
+export type SeasonBatchResult = z.infer<typeof seasonBatchSchema>;

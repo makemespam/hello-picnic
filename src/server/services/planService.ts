@@ -31,7 +31,8 @@ import { recipeCreateSchema, slugify, type RecipeCreateInput } from '@/shared/re
 import type { HouseholdPrefs } from '@/shared/settings';
 import { getWeekPromotions } from './picnicService';
 import { createRecipe, getRecipe, recordRecipePlanned, updateRecipe } from './recipeService';
-import { getHouseholdPrefs } from './settingsService';
+import { computeBestMonthsForRecipe } from './seasonService';
+import { clearSuggestionsCache, getHouseholdPrefs } from './settingsService';
 import { buildFromPlan } from './shoppingService';
 
 export class PlanServiceError extends Error {
@@ -176,6 +177,10 @@ async function persistAiRecipe(aiRecipe: AiRecipe): Promise<number> {
     const db = getDb();
     await db.update(recipes).set({ nutritionJson: merged.nutritionJson }).where(eq(recipes.id, created.id));
   }
+
+  // docs/workpackages/WP-13-proactive-suggestions.md §2: seasonality tag at recipe
+  // create time — graceful skip on any AI error, never blocks plan generation.
+  await computeBestMonthsForRecipe({ id: created.id, title: created.title, type: created.type, description: created.description });
 
   return created.id;
 }
@@ -543,5 +548,75 @@ export async function finalize(planId: number): Promise<PlanDto | null> {
   const db = getDb();
   await db.update(plans).set({ status: 'final' }).where(eq(plans.id, planId));
   await buildFromPlan(planId);
+  // docs/workpackages/WP-13-proactive-suggestions.md §3: "invalidate ... after a plan
+  // finalize" — recently-planned recipes changed, so the cached suggestions are stale.
+  await clearSuggestionsCache();
   return getPlan(planId);
+}
+
+// --- Add a Vandaag suggestion to the current plan (WP-13 §4) ------------------------
+
+async function fetchLatestDraftPlanRow(): Promise<PlanRow | undefined> {
+  const db = getDb();
+  const [row] = await db
+    .select()
+    .from(plans)
+    .where(and(eq(plans.householdId, HOUSEHOLD_ID), eq(plans.status, 'draft')))
+    .orderBy(desc(plans.createdAt))
+    .limit(1);
+  return row;
+}
+
+/**
+ * Vandaag's one-tap "→ Zet in weekplan" (docs/DESIGN_PRINCIPLES.md §5,
+ * docs/workpackages/WP-13 §4): adds the suggested recipe to the current draft plan's
+ * first empty slot index, or — if every slot up to `mealCount` is already filled —
+ * appends it as one extra slot (growing `mealCount` by one, since a suggestion the
+ * family explicitly tapped should never silently get dropped). With no draft plan at
+ * all, starts a brand-new draft at the household's usual `mealCount` (docs/
+ * DESIGN_PRINCIPLES.md §1.4 "defaults over settings") with just slot 0 filled — a
+ * literal 1-meal plan would otherwise become the new "latest plan" and silently shrink
+ * every subsequent "Genereer weekmenu" sheet's own mealCount default to 1.
+ */
+export async function addSuggestionToPlan(recipeId: number, now: Date = new Date()): Promise<PlanDto> {
+  const draft = await fetchLatestDraftPlanRow();
+  const db = getDb();
+
+  if (draft) {
+    const mealRows = await fetchMealRows(draft.id);
+    const usedSlots = new Set(mealRows.map((row) => row.slotIndex));
+    let slotIndex = 0;
+    while (usedSlots.has(slotIndex) && slotIndex < draft.mealCount) slotIndex += 1;
+
+    if (slotIndex < draft.mealCount) {
+      await db.insert(planMeals).values({ planId: draft.id, recipeId, slotIndex, approved: false });
+    } else {
+      const nextSlot = mealRows.reduce((max, row) => Math.max(max, row.slotIndex), -1) + 1;
+      await db.insert(planMeals).values({ planId: draft.id, recipeId, slotIndex: nextSlot, approved: false });
+      await db.update(plans).set({ mealCount: draft.mealCount + 1 }).where(eq(plans.id, draft.id));
+    }
+
+    const dto = await getPlan(draft.id);
+    if (!dto) throw new Error('addSuggestionToPlan: plan vanished immediately after update');
+    return dto;
+  }
+
+  const prefs = await getHouseholdPrefs();
+  const [planRow] = await db
+    .insert(plans)
+    .values({
+      householdId: HOUSEHOLD_ID,
+      weekStart: amsterdamDateKey(now),
+      servings: prefs.servings,
+      mealCount: prefs.mealCount,
+      rationale: '',
+      status: 'draft',
+    })
+    .returning();
+  if (!planRow) throw new Error('insert into plans returned no row');
+  await db.insert(planMeals).values({ planId: planRow.id, recipeId, slotIndex: 0, approved: false });
+
+  const dto = await getPlan(planRow.id);
+  if (!dto) throw new Error('addSuggestionToPlan: plan vanished immediately after create');
+  return dto;
 }

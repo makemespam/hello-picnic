@@ -1,3 +1,7 @@
 {
-  "teaser": "Perfect voor een doordeweekse avond: jullie ★5 orzosalade."
+  "items": [
+    { "index": 1, "teaser": "Perfect voor een doordeweekse avond: jullie ★5 orzosalade.", "bestMonths": [6, 7, 8] },
+    { "index": 2, "teaser": "Bewezen recept uit jullie kaartenbak, klaar in een handomdraai.", "bestMonths": [9, 10, 11] },
+    { "index": 3, "teaser": "Een frisse keuze die dit seizoen op z'n best is.", "bestMonths": [3, 4, 5] }
+  ]
 }

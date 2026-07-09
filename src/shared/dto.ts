@@ -116,3 +116,7 @@ export type {
   ScanImageDto,
   StoredCardExtractionDto,
 } from './scans';
+
+// Suggestion DTOs live in src/shared/suggestions.ts (WP-13); re-exported here for the
+// same reason. Suggestions never carry secrets either.
+export type { SuggestionListItemDto, SuggestionsDto } from './suggestions';

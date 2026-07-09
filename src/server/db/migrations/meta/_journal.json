@@ -43,6 +43,13 @@
       "when": 1783598527551,
       "tag": "0005_lazy_goblin_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783600085714,
+      "tag": "0006_curvy_mathemanic",
+      "breakpoints": true
     }
   ]
 }
