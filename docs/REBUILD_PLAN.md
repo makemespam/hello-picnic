@@ -123,6 +123,8 @@ Alternative (owner may buy a mini-PC): identical compose stack runs on any Linux
 | WP | Status | Date | Notes |
 |---|---|---|---|
 | WP-01 | ✅ done | 2026-07-11 | Built by architect. Deviation: session-bound to branch `claude/meal-planner-app-2cfHx`, so WPs land as one commit per WP on that branch instead of branch-per-WP. shadcn/ui CLI skipped — same pattern hand-rolled on Radix in WP-02. |
+| WP-03 (slice) | ✅ crypto layer | 2026-07-11 | Architect-owned `crypto.ts` (AES-256-GCM) + 8 tests landed early; rest of WP-03 open. |
+| WP-02 | ✅ done | 2026-07-11 | Built by Sonnet builder, architect-reviewed. 24 components, shell (BottomNav/sidebar), 5 sections with loading/error, /dev/ui showcase, PWA manifest+SW, axe a11y smoke in e2e (12/12 green). Deviations accepted: hand-written sw.js instead of Serwist; Sheet on native `<dialog>` instead of Radix; `@axe-core/playwright` devDep added; TopBar owns the h1; `devIndicators:false` (dev-only tap-target fix). Lighthouse gate deferred to CI/WP-14. Builder found+fixed 2 real bugs (Alert AA-contrast, PhotoFrame instant-load race) with regression tests. |
 
 ## 10. Risks
 
