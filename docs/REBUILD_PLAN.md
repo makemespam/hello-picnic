@@ -134,6 +134,8 @@ Alternative (owner may buy a mini-PC): identical compose stack runs on any Linux
 
 | WP-09 | ✅ done | 2026-07-11 | Sonnet builder + architect (313 unit + 64 e2e green, 3 mobile picnic specs skipped by design — shared-token race documented). Typed Picnic client (env-versioned base, MD5+device headers, token bucket 2 req/s), 2FA connect flow, tokens AES-encrypted in integration_tokens, error taxonomy + Dutch error mapping + re-login banner, promotions parser with discount/multi-buy metadata wired into planService with proven graceful degradation, FAKE_PICNIC e2e mode, legacy heuristics ported with branch-level tests. Accepted deviations: picnicService added to service list; shoppingProvider gate lands with WP-11; coverage tool not added. Builder fixed real TokenBucket clock-capture bug. Owner manual round with real Picnic account still pending (deploy-time). |
 
+| WP-10 | ✅ done | 2026-07-11 | Sonnet builder + architect line-review (390 unit + 67 e2e green). shopping_items schema, buildFromPlan aggregation (normalized keys, unit-aware merge, pantry exclusion, per-day breakdown), PURE basketOptimizer (promo classification: 2e gratis / 2e halve prijs / N-voor-M / bundelprijs / korting; count search minimizing waste+price; overshoot warnings), resolve pipeline (cache → heuristics → LLM validator → optimizer, resumable per-item), idempotent send with rate limiter and 429-retryable items, /boodschappen UI with candidate switcher, promo chips and basket total. Architect fixed one spec boundary in line review: need ≥1.2 packs + free-packs promo now forces the bundle (2 regression tests added). Core loop plan→boodschappen→mandje is COMPLETE — ready for first real-world VPS test. |
+
 ## 10. Risks
 
 | Risk | Mitigation |

@@ -221,3 +221,30 @@ describe('choosePackPlan', () => {
     expect(plan).toMatchObject({ count: 1, priceCents: 599 });
   });
 });
+
+// Architect regression (line review 2026-07-11): ARCHITECTURE §7 boundary — a need of
+// exactly 1.2 packs with a free-packs promo must take the bundle, not be talked down to
+// a single paid pack by the 80% undersupply floor (same money, free extra pack).
+import { describe as describeArch, expect as expectArch, it as itArch } from 'vitest';
+describeArch('choosePackPlan — multi-buy bundle threshold (ARCHITECTURE §7)', () => {
+  const candidate = {
+    article: { id: 'a1', name: 'Vastkokende aardappelen 1 kg' },
+    packAmount: 1000,
+    unit: 'g' as const,
+    packLabel: '1 kg',
+    priceCents: 199,
+    promo: { mechanism: 'second_free' as const, label: '2e gratis' },
+  };
+
+  itArch('need = exactly 1.2 packs → 2 packs, 1 free, price of 1', () => {
+    const plan = choosePackPlan({ amount: 1200, unit: 'g' }, [candidate]);
+    expectArch(plan?.count).toBe(2);
+    expectArch(plan?.freeCount).toBe(1);
+    expectArch(plan?.priceCents).toBe(199);
+  });
+
+  itArch('need = 1.1 packs (below threshold) → 1 pack, no forced bundle', () => {
+    const plan = choosePackPlan({ amount: 1100, unit: 'g' }, [candidate]);
+    expectArch(plan?.count).toBe(1);
+  });
+});

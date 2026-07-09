@@ -138,6 +138,8 @@ const WASTE_PENALTY_WEIGHT_CENTS = 100;
 // let a multi-buy promo (pay-for-half-of-N) win over the naive single-pack count.
 const COUNT_SEARCH_WINDOW = 3;
 const MAX_COUNT_SEARCH = 20;
+// ARCHITECTURE §7 point 3: need ≥ 1.2 packs + free-packs promo → take the bundle.
+const MULTI_BUY_TAKE_BUNDLE_THRESHOLD = 1.2;
 
 /** Total price (cents) + free-pack count for buying `count` packs at `unitPriceCents` under `promo`. */
 function priceForCount(count: number, unitPriceCents: number, promo: PackPromo | undefined): { totalCents: number; freeCount: number } {
@@ -211,7 +213,15 @@ function bestPlanForCandidate(needed: NormalizedAmount, candidate: PackCandidate
   }
 
   const neededAmount = Math.max(0, needed.amount);
-  const minCount = neededAmount <= 0 ? 1 : Math.max(1, Math.ceil((neededAmount * UNDERSUPPLY_FLOOR_RATIO) / packAmount));
+  let minCount = neededAmount <= 0 ? 1 : Math.max(1, Math.ceil((neededAmount * UNDERSUPPLY_FLOOR_RATIO) / packAmount));
+  // ARCHITECTURE §7: with a free-packs mechanism ("2e gratis", "2 voor 1") and a need of
+  // ≥ 1.2 packs, take the full bundle — the extra pack is free, so the 80% undersupply
+  // floor must not talk us down to a single paid pack at the same price.
+  if (candidate.promo && (candidate.promo.mechanism === 'second_free' || candidate.promo.mechanism === 'buy_n_pay_m')) {
+    const bundleCount = candidate.promo.mechanism === 'second_free' ? 2 : candidate.promo.bundleCount;
+    const neededPacks = neededAmount / packAmount;
+    if (neededPacks >= MULTI_BUY_TAKE_BUNDLE_THRESHOLD) minCount = Math.max(minCount, bundleCount);
+  }
   const maxCount = Math.min(MAX_COUNT_SEARCH, minCount + COUNT_SEARCH_WINDOW);
 
   let best: { count: number; totalCents: number; freeCount: number; score: number } | null = null;

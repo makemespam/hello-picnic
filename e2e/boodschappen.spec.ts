@@ -21,7 +21,7 @@ import { encryptSecret } from '../src/server/auth/crypto';
 import { getDb } from '../src/server/db/client';
 import { integrationTokens, planMeals, plans } from '../src/server/db/schema';
 import { finalize } from '../src/server/services/planService';
-import { createRecipe } from '../src/server/services/recipeService';
+import { createRecipe, findRecipeBySourceRef } from '../src/server/services/recipeService';
 import type { RecipeCreateInput } from '../src/shared/recipes';
 import { checkA11y, snap } from './helpers';
 
@@ -39,13 +39,24 @@ async function connectPicnic() {
   });
 }
 
+// sourceRef-based reuse (scripts/import-legacy.ts / seed-dev.ts pattern) so repeated
+// runs against the same dev DB converge on ONE recipe row instead of accumulating
+// library clutter that other specs would see in the /recepten grid.
+const RECIPE_SOURCE_REF = 'e2e-basket-optimizer';
+
 /** A single recipe with a known, hand-verifiable ingredient list: Broccoli (plain match),
  * Kipfilet (a "2e gratis" multi-buy promo candidate ranks first), Kokosmelk (plain
- * match), and a pantry item (excluded from the shoppable list entirely). */
+ * match), and a pantry item (excluded from the shoppable list entirely).
+ *
+ * The title must NOT contain any NAV_ITEMS label ("Vandaag"/"Weekplan"/"Recepten"/
+ * "Boodschappen"/"Meer") as a substring: Playwright's getByRole name matching is
+ * case-insensitive substring matching, so a library card titled e.g. "E2E
+ * Boodschappentest" hijacks navigation.spec.ts's `getByRole('link', { name:
+ * 'Boodschappen' })` when that spec clicks through the tabs from /recepten. */
 async function seedAndFinalizePlan(): Promise<number> {
   const input: RecipeCreateInput = {
     source: 'manual',
-    title: 'E2E Boodschappentest',
+    title: 'E2E mandje-optimalisatietest',
     description: '',
     type: 'vegetarisch',
     styles: [],
@@ -60,12 +71,13 @@ async function seedAndFinalizePlan(): Promise<number> {
       { nameKey: 'zout', display: 'Zout', amount: 1, unit: 'el', category: 'kruiden', pantry: true },
     ],
   };
-  const recipe = await createRecipe(input);
+  const existing = await findRecipeBySourceRef(RECIPE_SOURCE_REF);
+  const recipeId = existing?.id ?? (await createRecipe(input, { sourceRef: RECIPE_SOURCE_REF })).id;
 
   const db = getDb();
   const [planRow] = await db.insert(plans).values({ weekStart: '2026-07-06', servings: 4, mealCount: 1, rationale: '', status: 'draft' }).returning();
   if (!planRow) throw new Error('insert into plans returned no row');
-  await db.insert(planMeals).values({ planId: planRow.id, recipeId: recipe.id, slotIndex: 0, approved: true });
+  await db.insert(planMeals).values({ planId: planRow.id, recipeId, slotIndex: 0, approved: true });
   await finalize(planRow.id); // locks the plan + builds the shopping list (shoppingService.buildFromPlan)
   return planRow.id;
 }
@@ -175,4 +187,10 @@ test('resolveren, wisselen, promo, versturen en dubbel versturen van een boodsch
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'Mandje leegmaken' }).click();
   await expect(page.getByRole('button', { name: /Naar Picnic \(3 items · €\s?6,87\)/ })).toBeVisible();
+
+  // Leave the shared token row the way picnic.spec.ts expects to find it (disconnected).
+  // Best-effort (a mid-test failure skips this) — picnic.spec's own beforeEach reset is
+  // the real guarantee; this just keeps the dev DB tidy on the happy path.
+  const db = getDb();
+  await db.delete(integrationTokens).where(eq(integrationTokens.provider, 'picnic'));
 });

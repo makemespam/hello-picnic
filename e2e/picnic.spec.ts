@@ -28,8 +28,15 @@ import { checkA11y, snap } from './helpers';
 // scope for a single-household v2 app) or serializing the *entire* e2e run to one
 // worker (too invasive for the rest of the suite).
 test.describe.configure({ mode: 'serial' });
-test.beforeEach(({}, testInfo) => {
+test.beforeEach(async ({}, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'single shared Picnic account row — see comment above');
+  // WP-10 robustness: e2e/boodschappen.spec.ts (also desktop-only, same shared token
+  // row) seeds its own connected token; if it ran earlier — or a previous run left one
+  // behind — the settings card would show "✓ Verbonden" instead of the login form these
+  // tests start from. Reset to the disconnected baseline each test. (test.skip above
+  // aborts this hook for the mobile project, so this never races a desktop run.)
+  const db = getDb();
+  await db.delete(integrationTokens).where(eq(integrationTokens.provider, 'picnic'));
 });
 
 test('verbindt met Picnic zonder 2FA en kan de verbinding weer verbreken', async ({ page }, testInfo) => {
