@@ -1,0 +1,16 @@
+{
+  "meals": [
+    {
+      "recipe": {
+        "title": "Kruidige linzensoep",
+        "type": "vegetarisch",
+        "servings": 4,
+        "timeMin": 25,
+        "difficulty": "makkelijk",
+        "steps": ["Fruit ui en knoflook glazig.", "Voeg linzen, bouillon en kruiden toe.", "Laat 20 minuten sudderen."],
+        "ingredients": []
+      }
+    }
+  ],
+  "rationale": "FAKE_AI placeholder fixture (docs/workpackages/WP-05 §5) — het echte planSchema landt in WP-06 (docs/PROMPTS.md §2); dit bestand bewijst alleen de FAKE_AI-doorgeefroute."
+}

@@ -1,0 +1,6 @@
+{
+  "title": "Placeholder receptkaart",
+  "cardServings": 2,
+  "issues": [],
+  "note": "FAKE_AI placeholder fixture (docs/workpackages/WP-05 §5) — het echte cardExtractionSchema landt in WP-08 (docs/PROMPTS.md §3); dit bestand bewijst alleen de FAKE_AI-doorgeefroute."
+}

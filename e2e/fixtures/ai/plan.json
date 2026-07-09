@@ -1,0 +1,17 @@
+{
+  "meals": [
+    { "libraryRef": 3 },
+    {
+      "recipe": {
+        "title": "Romige pastalinguine met spinazie",
+        "type": "vegetarisch",
+        "servings": 4,
+        "timeMin": 30,
+        "difficulty": "makkelijk",
+        "steps": ["Kook de pasta beetgaar.", "Fruit knoflook, voeg spinazie en room toe.", "Meng door de pasta met geraspte Parmezaan."],
+        "ingredients": []
+      }
+    }
+  ],
+  "rationale": "FAKE_AI placeholder fixture (docs/workpackages/WP-05 §5) — het echte planSchema landt in WP-06 (docs/PROMPTS.md §1); dit bestand bewijst alleen de FAKE_AI-doorgeefroute."
+}

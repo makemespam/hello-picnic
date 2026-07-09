@@ -54,6 +54,66 @@ function Card({ title, description, children }: { title: string; description?: s
   );
 }
 
+type ProviderId = 'anthropic' | 'openai' | 'google' | 'deepseek';
+type TestStatus = 'idle' | 'testing' | 'ok' | 'error';
+
+interface AiTestResponse {
+  ok: boolean;
+  error?: string;
+}
+
+const TEST_ERROR_LABEL: Record<string, string> = {
+  no_api_key: 'geen sleutel ingesteld',
+  no_registered_model: 'nog geen geverifieerd model',
+};
+
+/** "Test verbinding" per provider (docs/workpackages/WP-05 §6) — POSTs to /api/ai/test. */
+function TestConnectionButton({ provider }: { provider: ProviderId }) {
+  const [status, setStatus] = useState<TestStatus>('idle');
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleClick() {
+    setStatus('testing');
+    setError(null);
+    try {
+      const res = await fetch('/api/ai/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider }),
+      });
+      const data = (await res.json()) as AiTestResponse;
+      setStatus(data.ok ? 'ok' : 'error');
+      if (!data.ok) setError(data.error ? (TEST_ERROR_LABEL[data.error] ?? data.error) : 'onbekende fout');
+    } catch {
+      setStatus('error');
+      setError('netwerkfout');
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={status === 'testing'}
+        className="h-9 shrink-0 rounded-full border border-ink/15 px-3 text-xs font-semibold text-ink hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {status === 'testing' ? 'Bezig…' : 'Test verbinding'}
+      </button>
+      {status === 'ok' && (
+        <span className="text-xs font-medium text-success" role="status">
+          ✓ Verbonden
+        </span>
+      )}
+      {status === 'error' && (
+        <span className="text-xs font-medium text-danger" role="status">
+          ✗ {error}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function SecretField({
   id,
   label,
@@ -307,34 +367,46 @@ export function InstellingenForm({ initial, modelsByPurpose, defaultModelIdByPur
 
       <Card title="AI-providers" description="API-sleutels voor tekst-AI (plannen, scannen, valideren).">
         <div className="grid gap-4 sm:grid-cols-2">
-          <SecretField
-            id="anthropicApiKey"
-            label="Anthropic API-sleutel"
-            value={secrets.anthropicApiKey}
-            configured={configured.anthropicApiKey}
-            onChange={(value) => setSecret('anthropicApiKey', value)}
-          />
-          <SecretField
-            id="openaiApiKey"
-            label="OpenAI API-sleutel"
-            value={secrets.openaiApiKey}
-            configured={configured.openaiApiKey}
-            onChange={(value) => setSecret('openaiApiKey', value)}
-          />
-          <SecretField
-            id="geminiApiKey"
-            label="Google Gemini API-sleutel"
-            value={secrets.geminiApiKey}
-            configured={configured.geminiApiKey}
-            onChange={(value) => setSecret('geminiApiKey', value)}
-          />
-          <SecretField
-            id="deepseekApiKey"
-            label="DeepSeek API-sleutel"
-            value={secrets.deepseekApiKey}
-            configured={configured.deepseekApiKey}
-            onChange={(value) => setSecret('deepseekApiKey', value)}
-          />
+          <div className="flex flex-col gap-2">
+            <SecretField
+              id="anthropicApiKey"
+              label="Anthropic API-sleutel"
+              value={secrets.anthropicApiKey}
+              configured={configured.anthropicApiKey}
+              onChange={(value) => setSecret('anthropicApiKey', value)}
+            />
+            <TestConnectionButton provider="anthropic" />
+          </div>
+          <div className="flex flex-col gap-2">
+            <SecretField
+              id="openaiApiKey"
+              label="OpenAI API-sleutel"
+              value={secrets.openaiApiKey}
+              configured={configured.openaiApiKey}
+              onChange={(value) => setSecret('openaiApiKey', value)}
+            />
+            <TestConnectionButton provider="openai" />
+          </div>
+          <div className="flex flex-col gap-2">
+            <SecretField
+              id="geminiApiKey"
+              label="Google Gemini API-sleutel"
+              value={secrets.geminiApiKey}
+              configured={configured.geminiApiKey}
+              onChange={(value) => setSecret('geminiApiKey', value)}
+            />
+            <TestConnectionButton provider="google" />
+          </div>
+          <div className="flex flex-col gap-2">
+            <SecretField
+              id="deepseekApiKey"
+              label="DeepSeek API-sleutel"
+              value={secrets.deepseekApiKey}
+              configured={configured.deepseekApiKey}
+              onChange={(value) => setSecret('deepseekApiKey', value)}
+            />
+            <TestConnectionButton provider="deepseek" />
+          </div>
         </div>
       </Card>
 

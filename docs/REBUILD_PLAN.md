@@ -128,6 +128,8 @@ Alternative (owner may buy a mini-PC): identical compose stack runs on any Linux
 
 | WP-04 | ✅ done | 2026-07-11 | Sonnet builder, architect-reviewed (121 unit + 49 e2e green, blob-free DB verified). Recipe schema+migration, StorageAdapter (fs atomic; s3 stubbed with typed NotImplemented — accepted, lands with a real S3 target), sharp derivatives + blur-up, /api/images streaming, recipeService+API, library grid/detail/cook-mode/editor UI, legacy import (idempotent, fixture-tested), 12-recipe seed. Accepted deviations: no plan seeded (WP-06 tables), Field/PhotoFrame minor prop extensions, vitest fileParallelism off (shared-DB truncation races). Polish note: dev-overlay flags 1 dev-mode issue on /recepten. |
 
+| WP-05 | ✅ done | 2026-07-11 | Sonnet builder + architect (152 unit + 59 e2e green). Vercel AI SDK layer for all 4 providers, callStructured (purpose routing, Zod retry loop, timeout/backoff, ledger on every call incl. failures), AiError taxonomy, Anthropic prompt caching, FAKE_AI fixtures, /api/ai/test + settings buttons, /meer/kosten dashboard. Architect completed registry with live-verified gpt-5.5 ($5/$30), gpt-5.4-mini ($0.75/$4.50), gemini-3.5-flash ($1.50/$9). Accepted deviations: /api/ai/test not ledgered (diagnostic); timeout tests via env-shortened real timers (fake timers raced Postgres I/O); image models deferred to WP-07 taste test (callImage throws AiConfigError until then). |
+
 ## 10. Risks
 
 | Risk | Mitigation |

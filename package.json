@@ -18,6 +18,11 @@
     "create-user": "tsx scripts/create-user.ts"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.10",
+    "@ai-sdk/deepseek": "^3.0.6",
+    "@ai-sdk/google": "^4.0.10",
+    "@ai-sdk/openai": "^4.0.9",
+    "ai": "^7.0.18",
     "bcryptjs": "^3.0.3",
     "drizzle-orm": "^0.44.0",
     "next": "15.3.1",

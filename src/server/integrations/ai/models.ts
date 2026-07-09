@@ -68,6 +68,35 @@ export const AI_MODELS: AiModel[] = [
     verifiedOn: VERIFIED_ON,
     notes: 'Default for suggest; budget alternative for validate_product.',
   },
+  {
+    id: 'gpt-5.5',
+    provider: 'openai',
+    purposes: ['plan', 'replace'],
+    inputPricePerMTok: 5,
+    outputPricePerMTok: 30,
+    verifiedOn: VERIFIED_ON,
+    notes: 'Premium alternative for plan/replace.',
+  },
+  {
+    id: 'gpt-5.4-mini',
+    provider: 'openai',
+    purposes: ['scan_card', 'validate_product'],
+    inputPricePerMTok: 0.75,
+    outputPricePerMTok: 4.5,
+    verifiedOn: VERIFIED_ON,
+    notes: 'Vision-capable; alternative for scan_card.',
+  },
+  {
+    id: 'gemini-3.5-flash',
+    provider: 'google',
+    purposes: ['scan_card', 'validate_product'],
+    inputPricePerMTok: 1.5,
+    outputPricePerMTok: 9,
+    verifiedOn: VERIFIED_ON,
+    notes: 'Default for scan_card (vision, Dutch OCR eval in WP-08).',
+  },
+  // Image models (purpose 'image') land with WP-07's taste test — callImage
+  // deliberately throws AiConfigError until then.
 ];
 
 // Owner-overridable per purpose in settings (docs/ARCHITECTURE.md §5); this is only
@@ -91,4 +120,10 @@ export function getDefaultModelForPurpose(purpose: AiPurpose): AiModel | undefin
 
 export function getModelById(id: string): AiModel | undefined {
   return AI_MODELS.find((model) => model.id === id);
+}
+
+// Used by POST /api/ai/test (WP-05 §6: "Test verbinding" per provider) to pick a
+// registered model to probe — connectivity checks don't go through purpose routing.
+export function getModelsForProvider(provider: AiProvider): AiModel[] {
+  return AI_MODELS.filter((model) => model.provider === provider);
 }

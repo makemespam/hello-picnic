@@ -15,10 +15,10 @@ const SENTINELS = {
 
 // Every API route that exists as of WP-04 (docs/ARCHITECTURE.md §4). Extend this
 // list as later WPs add routes — that's the whole point of this test.
-const API_ROUTES = ['/api/settings', '/api/health', '/api/auth/session', '/api/recipes'];
+const API_ROUTES = ['/api/settings', '/api/health', '/api/auth/session', '/api/recipes', '/api/costs'];
 
-// Every shell page (src/shared/labels.ts NAV_ITEMS) plus the settings screen itself.
-const PAGES = ['/', '/plan', '/recepten', '/recepten/nieuw', '/boodschappen', '/meer', '/meer/instellingen'];
+// Every shell page (src/shared/labels.ts NAV_ITEMS) plus the settings and kosten screens.
+const PAGES = ['/', '/plan', '/recepten', '/recepten/nieuw', '/boodschappen', '/meer', '/meer/instellingen', '/meer/kosten'];
 
 test.describe('secret-leak crawl', () => {
   // "Logs in as the seeded user" is satisfied by the shared storageState set up by

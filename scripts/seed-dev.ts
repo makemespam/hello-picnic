@@ -2,6 +2,8 @@
 // WP-03 slice: 1 login user for local dev + the e2e/secret-leak sentinel data flow.
 // WP-04 adds: 12 recipes (3 source='card' with small generated placeholder photos
 // written through the StorageAdapter, 9 source='ai' without photos).
+// WP-05 adds: a handful of llm_calls ledger rows so /meer/kosten has something to
+// show in dev/e2e without a real AI call ever having been made.
 //
 // DEVIATION (flagged per .cursorrules): the WP-04 scope summary line also mentions
 // "1 draft plan", but `plans`/`plan_meals` are WP-06's tables (docs/ARCHITECTURE.md §2,
@@ -12,9 +14,11 @@ import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import sharp from 'sharp';
 import { getDb } from '../src/server/db/client';
-import { users } from '../src/server/db/schema';
+import { llmCalls, users } from '../src/server/db/schema';
 import { createRecipe, findRecipeBySourceRef } from '../src/server/services/recipeService';
+import { computeCostCents } from '../src/server/services/costService';
 import type { RecipeCreateInput } from '../src/shared/recipes';
+import type { AiPurpose } from '../src/shared/labels';
 
 const DEV_USER = {
   email: 'gezin@example.com',
@@ -329,6 +333,69 @@ async function seedRecipes() {
   }
 }
 
+interface SeedLlmCall {
+  purpose: AiPurpose;
+  provider: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  ok: boolean;
+  error?: string;
+  /** Minutes ago (from seed time) — spreads rows across the /meer/kosten "Wanneer" column. */
+  minutesAgo: number;
+}
+
+// Token counts chosen as round numbers (multiples of 10,000) so the resulting
+// cost_cents figures — computed from the real registry pricing via computeCostCents,
+// never hardcoded — are exact, easy to hand-verify, and stable for the e2e assertion
+// on /meer/kosten (docs/workpackages/WP-05 §8: "assert one exact € amount").
+const SEED_LLM_CALLS: SeedLlmCall[] = [
+  { purpose: 'plan', provider: 'anthropic', model: 'claude-sonnet-5', inputTokens: 50_000, outputTokens: 20_000, ok: true, minutesAgo: 60 * 20 },
+  { purpose: 'validate_product', provider: 'anthropic', model: 'claude-haiku-4-5-20251001', inputTokens: 80_000, outputTokens: 10_000, ok: true, minutesAgo: 60 * 10 },
+  { purpose: 'suggest', provider: 'deepseek', model: 'deepseek-v4-flash', inputTokens: 100_000, outputTokens: 50_000, ok: true, minutesAgo: 60 * 5 },
+  { purpose: 'replace', provider: 'deepseek', model: 'deepseek-v4-pro', inputTokens: 100_000, outputTokens: 50_000, ok: true, minutesAgo: 30 },
+  {
+    purpose: 'validate_product',
+    provider: 'anthropic',
+    model: 'claude-haiku-4-5-20251001',
+    inputTokens: 20_000,
+    outputTokens: 0,
+    ok: false,
+    error: 'AI-antwoord voldeed na een herhaalde poging nog steeds niet aan het verwachte schema.',
+    minutesAgo: 10,
+  },
+];
+
+/**
+ * llm_calls has no natural per-row key (unlike recipes' sourceRef), so idempotency
+ * here means "always converge to the same fixed demo set" rather than "insert once,
+ * never touch again": every run clears the table and re-inserts fresh rows with
+ * `createdAt` relative to *now*, so the /meer/kosten rolling week/month windows
+ * always include them regardless of how long ago the DB was first seeded.
+ */
+async function seedLlmCalls() {
+  const db = getDb();
+  await db.delete(llmCalls);
+
+  const now = Date.now();
+  await db.insert(llmCalls).values(
+    SEED_LLM_CALLS.map((seed) => ({
+      purpose: seed.purpose,
+      provider: seed.provider,
+      model: seed.model,
+      inputTokens: seed.inputTokens,
+      outputTokens: seed.outputTokens,
+      costCents: computeCostCents(seed.model, seed.inputTokens, seed.outputTokens) ?? 0,
+      durationMs: 1200,
+      ok: seed.ok,
+      error: seed.error ?? null,
+      createdAt: new Date(now - seed.minutesAgo * 60_000),
+    }))
+  );
+
+  console.log(`[seed-dev] ${SEED_LLM_CALLS.length} llm_calls-rijen gezet (kostenvoorbeeld voor /meer/kosten).`);
+}
+
 async function main() {
   if (process.env.NODE_ENV === 'production') {
     console.log('[seed-dev] NODE_ENV=production — refusing to seed known dev data, skipping.');
@@ -337,6 +404,7 @@ async function main() {
 
   await seedUser();
   await seedRecipes();
+  await seedLlmCalls();
 }
 
 main()
