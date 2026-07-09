@@ -23,6 +23,12 @@ const API_ROUTES = [
   '/api/costs',
   '/api/plans/latest',
   '/api/picnic/status',
+  // WP-10: shopping_items never carries a secret either, but article_json embeds raw
+  // Picnic product names/prices straight from a live-shaped response — worth crawling
+  // even though this route can never see a sentinel value itself. Plan id 1 always
+  // exists (scripts/seed-dev.ts seeds exactly one plan) — a 404 body is fine too, the
+  // crawl only cares that no response ever contains a sentinel.
+  '/api/shopping/1',
 ];
 
 // Every shell page (src/shared/labels.ts NAV_ITEMS) plus the settings and kosten screens.
@@ -68,6 +74,11 @@ test.describe('authz matrix (unauthenticated)', () => {
 
   test('GET /api/settings zonder sessie geeft 401', async ({ page }) => {
     const res = await page.request.get('/api/settings');
+    expect(res.status()).toBe(401);
+  });
+
+  test('GET /api/shopping/1 zonder sessie geeft 401', async ({ page }) => {
+    const res = await page.request.get('/api/shopping/1');
     expect(res.status()).toBe(401);
   });
 

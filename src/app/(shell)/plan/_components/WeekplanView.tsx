@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { PageHeader } from '@/components/PageHeader';
 import type { PlanDto } from '@/shared/dto';
 import type { RecipeListItemDto } from '@/shared/recipes';
+import { CostSummaryPanel, type CostSummary } from './CostSummaryPanel';
 import { GeneratePlanSheet, type GeneratePlanInputPayload } from './GeneratePlanSheet';
 import { PlanMealCard } from './PlanMealCard';
 
@@ -18,6 +19,7 @@ export interface WeekplanViewProps {
   libraryRecipes: RecipeListItemDto[];
   defaultServings: number;
   defaultMealCount: number;
+  costSummary?: CostSummary | null;
 }
 
 /** Dutch short day label ("wo 15 juli", docs/DESIGN_PRINCIPLES.md §6) for weekStart + a slot offset. */
@@ -35,7 +37,7 @@ async function postJson(url: string, body?: unknown): Promise<Response> {
   });
 }
 
-export function WeekplanView({ initialPlan, libraryRecipes, defaultServings, defaultMealCount }: WeekplanViewProps) {
+export function WeekplanView({ initialPlan, libraryRecipes, defaultServings, defaultMealCount, costSummary }: WeekplanViewProps) {
   const router = useRouter();
   const [plan, setPlan] = useState(initialPlan);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -141,6 +143,8 @@ export function WeekplanView({ initialPlan, libraryRecipes, defaultServings, def
               />
             ))}
           </div>
+
+          {plan.status === 'final' && costSummary && <CostSummaryPanel summary={costSummary} />}
 
           {plan.rationale && (
             <details className="rounded-lg border border-ink/10 bg-surface p-4">

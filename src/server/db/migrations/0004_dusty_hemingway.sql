@@ -1,0 +1,1 @@
+ALTER TABLE "shopping_items" ADD COLUMN "free_pack_count" integer DEFAULT 0 NOT NULL;

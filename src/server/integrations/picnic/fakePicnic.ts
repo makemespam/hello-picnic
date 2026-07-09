@@ -15,6 +15,10 @@
 // - 2FA code "123456"                 -> verify succeeds (fixtures/2fa-verify-ok.json)
 // - any other 2FA code                -> verify fails (400)
 // - x-picnic-auth === FAKE_EXPIRED_TOKEN -> every authenticated call returns 401 (fixtures/error-401.json)
+// - cart/add_product with product_id === FAKE_RATE_LIMITED_ARTICLE_ID -> always 429
+//   (fixtures/error-429.json), simulating a rate limit that outlives client.ts's own
+//   one-retry (docs/workpackages/WP-10-basket-optimizer.md §6: "one mocked 429 mid-batch
+//   leaves item retryable, rest unaffected")
 import { readFile } from 'fs/promises';
 import path from 'path';
 
@@ -26,6 +30,13 @@ export function isFakePicnic(): boolean {
  * every subsequent authenticated FAKE_PICNIC call to look expired (docs/workpackages/
  * WP-09 §6 "expired-token banner state"). */
 export const FAKE_EXPIRED_TOKEN = 'FAKE_EXPIRED_TOKEN';
+
+/** Sentinel Picnic article id (docs/workpackages/WP-10-basket-optimizer.md §6): adding
+ * this specific product to the cart always 429s, simulating a mid-batch rate limit that
+ * leaves exactly that item retryable while the rest of the send batch is unaffected.
+ * e2e/fixtures/picnic/search-results.json includes a matching "Broccoli"-alternative
+ * candidate carrying this id so a spec can switch one item to it via the candidate Sheet. */
+export const FAKE_RATE_LIMITED_ARTICLE_ID = 's7002';
 
 const FIXTURES_DIR = path.join(process.cwd(), 'e2e/fixtures/picnic');
 
@@ -39,6 +50,27 @@ export interface FakePicnicRequest {
   method: string;
   headers: Record<string, string>;
   body?: unknown;
+}
+
+// --- Call log (docs/workpackages/WP-10-basket-optimizer.md §6: "assert cart-add
+// fixture call count via a FAKE_PICNIC call-log") -------------------------------------
+// Module-level, process-local — the Next.js dev server process the Playwright e2e suite
+// drives is that process, exposed to specs via GET/DELETE /api/dev/fake-picnic-calls
+// (gated to isFakePicnic(), 404s otherwise — never reachable outside tests).
+
+const callLog: FakePicnicRequest[] = [];
+
+/** Records every dispatched FAKE_PICNIC request (path/method only is normally enough to assert on). */
+function recordCall(req: FakePicnicRequest): void {
+  callLog.push(req);
+}
+
+export function getFakePicnicCallLog(): readonly FakePicnicRequest[] {
+  return callLog;
+}
+
+export function resetFakePicnicCallLog(): void {
+  callLog.length = 0;
 }
 
 function jsonResponse(status: number, body: unknown, headers: Record<string, string> = {}): Response {
@@ -78,8 +110,16 @@ async function fakeAuthenticated(req: FakePicnicRequest, fixtureName: string): P
   return jsonResponse(200, fixture);
 }
 
+async function fakeAddProduct(req: FakePicnicRequest): Promise<Response> {
+  if (isExpiredToken(req)) return jsonResponse(401, await readFixtureJson('error-401'));
+  const { product_id: productId } = (req.body ?? {}) as { product_id?: string };
+  if (productId === FAKE_RATE_LIMITED_ARTICLE_ID) return jsonResponse(429, await readFixtureJson('error-429'), { 'retry-after': '0' });
+  return jsonResponse(200, await readFixtureJson('cart-add-ok'));
+}
+
 /** Dispatches a FAKE_PICNIC request to the matching fixture-backed handler. */
 export async function fakePicnicFetch(req: FakePicnicRequest): Promise<Response> {
+  recordCall(req);
   if (req.path === '/user/login' && req.method === 'POST') return fakeLogin(req);
   if (req.path === '/user/2fa/generate' && req.method === 'POST') return jsonResponse(200, { ok: true });
   if (req.path === '/user/2fa/verify' && req.method === 'POST') return fakeTwoFactorVerify(req);
@@ -87,7 +127,7 @@ export async function fakePicnicFetch(req: FakePicnicRequest): Promise<Response>
     return fakeAuthenticated(req, 'search-results');
   }
   if (req.path === '/promotion-overview' && req.method === 'GET') return fakeAuthenticated(req, 'promotions');
-  if (req.path === '/cart/add_product' && req.method === 'POST') return fakeAuthenticated(req, 'cart-add-ok');
+  if (req.path === '/cart/add_product' && req.method === 'POST') return fakeAddProduct(req);
   if (req.path === '/cart/clear' && req.method === 'POST') return fakeAuthenticated(req, 'cart-add-ok');
   if (req.path === '/cart' && req.method === 'GET') return fakeAuthenticated(req, 'cart-add-ok');
 

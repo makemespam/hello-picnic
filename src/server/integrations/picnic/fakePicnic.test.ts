@@ -1,8 +1,19 @@
 // Unit layer (docs/TESTING.md §1) — the FAKE_PICNIC dispatch table itself (used by the
 // Playwright e2e suite; exercised directly here so its scenario-selection rules stay
 // documented and regression-tested without needing a full browser run).
-import { describe, expect, it } from 'vitest';
-import { FAKE_EXPIRED_TOKEN, fakePicnicFetch, isFakePicnic } from './fakePicnic';
+import { beforeEach, describe, expect, it } from 'vitest';
+import {
+  FAKE_EXPIRED_TOKEN,
+  FAKE_RATE_LIMITED_ARTICLE_ID,
+  fakePicnicFetch,
+  getFakePicnicCallLog,
+  isFakePicnic,
+  resetFakePicnicCallLog,
+} from './fakePicnic';
+
+beforeEach(() => {
+  resetFakePicnicCallLog();
+});
 
 describe('isFakePicnic', () => {
   it('reflects FAKE_PICNIC=1', () => {
@@ -82,5 +93,24 @@ describe('fakePicnicFetch — authenticated endpoints', () => {
   it('returns 404 for an unhandled path', async () => {
     const res = await fakePicnicFetch({ path: '/not-a-real-endpoint', method: 'GET', headers: {} });
     expect(res.status).toBe(404);
+  });
+
+  it('cart/add_product 429s for the FAKE_RATE_LIMITED_ARTICLE_ID sentinel, 200s for anything else', async () => {
+    const limited = await fakePicnicFetch({ path: '/cart/add_product', method: 'POST', headers: {}, body: { product_id: FAKE_RATE_LIMITED_ARTICLE_ID, count: 1 } });
+    expect(limited.status).toBe(429);
+
+    const ok = await fakePicnicFetch({ path: '/cart/add_product', method: 'POST', headers: {}, body: { product_id: 's1001', count: 1 } });
+    expect(ok.status).toBe(200);
+  });
+});
+
+describe('call log', () => {
+  it('records every dispatched request and can be reset', async () => {
+    await fakePicnicFetch({ path: '/cart', method: 'GET', headers: {} });
+    await fakePicnicFetch({ path: '/cart/add_product', method: 'POST', headers: {}, body: { product_id: 's1001', count: 1 } });
+    expect(getFakePicnicCallLog()).toHaveLength(2);
+
+    resetFakePicnicCallLog();
+    expect(getFakePicnicCallLog()).toHaveLength(0);
   });
 });

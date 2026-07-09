@@ -29,6 +29,136 @@
           "display_price": 219,
           "unit_quantity": "500ml",
           "image_ids": ["img_soep_1"]
+        },
+        {
+          "type": "SINGLE_ARTICLE",
+          "id": "s2001",
+          "name": "Tomatenblokjes uit blik 400g",
+          "price": 89,
+          "display_price": 89,
+          "unit_quantity": "400g",
+          "image_ids": ["img_tomaat_1"]
+        },
+        {
+          "type": "SINGLE_ARTICLE",
+          "id": "s2002",
+          "name": "Verse tomaten 500g",
+          "price": 199,
+          "display_price": 199,
+          "unit_quantity": "500g",
+          "image_ids": ["img_tomaat_2"]
+        },
+        {
+          "type": "SINGLE_ARTICLE",
+          "id": "s3001",
+          "name": "Ui 1kg net",
+          "price": 99,
+          "display_price": 99,
+          "unit_quantity": "1kg",
+          "image_ids": ["img_ui_1"]
+        },
+        {
+          "type": "SINGLE_ARTICLE",
+          "id": "s4001",
+          "name": "Kookroom 20% 250ml",
+          "price": 119,
+          "display_price": 119,
+          "unit_quantity": "250ml",
+          "image_ids": ["img_room_1"]
+        },
+        {
+          "type": "SINGLE_ARTICLE",
+          "id": "s5001",
+          "name": "Verse basilicum bos",
+          "price": 159,
+          "display_price": 159,
+          "unit_quantity": "1 bos",
+          "image_ids": ["img_basilicum_1"]
+        },
+        {
+          "type": "SINGLE_ARTICLE",
+          "id": "s6001",
+          "name": "Zalmfilet 4 stuks",
+          "price": 799,
+          "display_price": 799,
+          "unit_quantity": "4 stuks",
+          "image_ids": ["img_zalm_1"]
+        },
+        {
+          "type": "SINGLE_ARTICLE",
+          "id": "s7001",
+          "name": "Broccoli 500g",
+          "price": 149,
+          "display_price": 149,
+          "unit_quantity": "500g",
+          "image_ids": ["img_broccoli_1"]
+        },
+        {
+          "type": "SINGLE_ARTICLE",
+          "id": "s7002",
+          "name": "Broccoli los 400g",
+          "price": 179,
+          "display_price": 179,
+          "unit_quantity": "400g",
+          "image_ids": ["img_broccoli_2"]
+        },
+        {
+          "type": "SINGLE_ARTICLE",
+          "id": "s8001",
+          "name": "Citroen 1 stuk",
+          "price": 49,
+          "display_price": 49,
+          "unit_quantity": "1 stuk",
+          "image_ids": ["img_citroen_1"]
+        },
+        {
+          "type": "SINGLE_ARTICLE",
+          "id": "s9001",
+          "name": "Kokosmelk blik 400ml",
+          "price": 139,
+          "display_price": 139,
+          "unit_quantity": "400ml",
+          "image_ids": ["img_kokosmelk_1"]
+        },
+        {
+          "type": "SINGLE_ARTICLE",
+          "id": "s10001",
+          "name": "Rode linzen 500g",
+          "price": 179,
+          "display_price": 179,
+          "unit_quantity": "500g",
+          "image_ids": ["img_linzen_1"]
+        },
+        {
+          "type": "SINGLE_ARTICLE",
+          "id": "s11001",
+          "name": "Verse spinazie 300g",
+          "price": 189,
+          "display_price": 189,
+          "unit_quantity": "300g",
+          "image_ids": ["img_spinazie_1"]
+        },
+        {
+          "type": "SINGLE_ARTICLE",
+          "id": "s12001",
+          "name": "Kipfilet 400g",
+          "price": 549,
+          "display_price": 399,
+          "unit_quantity": "400g",
+          "image_ids": ["img_kipfilet_1"],
+          "decorators": [
+            { "type": "PRICE", "original_price": 549, "display_price": 399 },
+            { "type": "PROMO_LABEL", "text": "2e gratis" }
+          ]
+        },
+        {
+          "type": "SINGLE_ARTICLE",
+          "id": "s12002",
+          "name": "Biologische kipfilet 300g",
+          "price": 599,
+          "display_price": 599,
+          "unit_quantity": "300g",
+          "image_ids": ["img_kipfilet_2"]
         }
       ]
     }

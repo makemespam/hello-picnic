@@ -5,6 +5,14 @@
 // WP-08: card_scans
 // WP-10: shopping_items
 // See docs/ARCHITECTURE.md §3 for the full normative schema.
+//
+// WP-10 additions beyond the literal §3 column list (both scoped to shopping_items,
+// this WP's own table — not a schema change outside the WP):
+// - `breakdown`: the per-item cross-recipe text label ("800 g (di) + 600 g (vr)",
+//   docs/workpackages/WP-10-basket-optimizer.md §1) has no other natural home.
+// - `lastError`: send()'s per-item Dutch failure reason (e.g. a rate-limit message) so a
+//   failed row is resumable/explainable without overloading `warning` (optimizer-owned:
+//   overshoot text) or the `status` enum (cart-state only, per ARCHITECTURE §3).
 
 import { boolean, index, integer, jsonb, numeric, pgEnum, pgTable, primaryKey, serial, text, timestamp } from 'drizzle-orm/pg-core';
 import {
@@ -59,6 +67,10 @@ export const imageKindEnum = pgEnum('image_kind', ['card', 'generated', 'derived
 
 // Weekplan domain (WP-06, docs/ARCHITECTURE.md §3).
 export const planStatusEnum = pgEnum('plan_status', ['draft', 'final']);
+
+// Shopping domain (WP-10, docs/ARCHITECTURE.md §3/§7).
+export const shoppingProviderEnum = pgEnum('shopping_provider', ['picnic', 'bring']);
+export const shoppingItemStatusEnum = pgEnum('shopping_item_status', ['open', 'added', 'failed', 'skipped']);
 
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
@@ -223,4 +235,44 @@ export const planMeals = pgTable(
     calendarEventId: text('calendar_event_id'),
   },
   (table) => [index('plan_meals_plan_id_idx').on(table.planId)]
+);
+
+// Shopping list (WP-10, docs/ARCHITECTURE.md §3): one row per aggregated ingredient of
+// a finalized plan. `articleJson` holds the shape `{ article: PicnicArticle, candidates:
+// PicnicArticle[] }` (src/shared/shopping.ts `ShoppingArticleJson`) — the chosen product
+// plus its top-5 alternatives (candidate switcher, docs/DESIGN_PRINCIPLES.md §5).
+export const shoppingItems = pgTable(
+  'shopping_items',
+  {
+    id: serial('id').primaryKey(),
+    planId: integer('plan_id')
+      .notNull()
+      .references(() => plans.id, { onDelete: 'cascade' }),
+    nameKey: text('name_key').notNull(),
+    display: text('display').notNull(),
+    totalAmount: numeric('total_amount', { precision: 10, scale: 2, mode: 'number' }).notNull(),
+    unit: text('unit').notNull(),
+    category: ingredientCategoryEnum('category').notNull().$type<IngredientCategory>(),
+    productPreference: productPreferenceEnum('product_preference').$type<ProductPreference>(),
+    pantry: boolean('pantry').notNull().default(false),
+    enabled: boolean('enabled').notNull().default(true),
+    provider: shoppingProviderEnum('provider').notNull().default('picnic'),
+    articleJson: jsonb('article_json').$type<Record<string, unknown>>(),
+    articleCount: integer('article_count'),
+    coverageLabel: text('coverage_label'),
+    warning: text('warning'),
+    priceCents: integer('price_cents'),
+    status: shoppingItemStatusEnum('status').notNull().default('open'),
+    // Cross-recipe breakdown label, e.g. "800 g (di) + 600 g (vr)" — see the schema.ts
+    // header comment for why this and `lastError` live outside ARCHITECTURE §3's literal
+    // column list.
+    breakdown: text('breakdown').notNull().default(''),
+    lastError: text('last_error'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    // Packs effectively free/discounted via a multi-buy mechanism (basketOptimizer.ts
+    // PackPlan.freeCount) — persisted rather than recomputed on every read so the "2e
+    // gratis"-style promo chip survives a page reload without re-running the optimizer.
+    freePackCount: integer('free_pack_count').notNull().default(0),
+  },
+  (table) => [index('shopping_items_plan_id_idx').on(table.planId)]
 );

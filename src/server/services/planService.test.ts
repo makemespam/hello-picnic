@@ -13,6 +13,7 @@ import { getDb } from '@/server/db/client';
 import { integrationTokens, llmCalls, planMeals, plans, recipeIngredients, recipes } from '@/server/db/schema';
 import { FAKE_EXPIRED_TOKEN } from '@/server/integrations/picnic/fakePicnic';
 import { createRecipe, getRecipe, updateRecipe } from './recipeService';
+import { getShoppingList } from './shoppingService';
 import {
   approveMeal,
   finalize,
@@ -232,6 +233,11 @@ describe('planService.finalize', () => {
     const afterLibrary = await getRecipe(idLibrary);
     expect(afterLibrary?.timesPlanned).toBe(1);
     expect(afterLibrary?.lastPlannedAt).not.toBeNull();
+
+    // docs/workpackages/WP-10-basket-optimizer.md §1: finalize also builds the
+    // aggregated shopping list (shoppingService.buildFromPlan).
+    const shoppingList = await getShoppingList(plan.id);
+    expect(shoppingList?.items.length).toBeGreaterThan(0);
   });
 });
 

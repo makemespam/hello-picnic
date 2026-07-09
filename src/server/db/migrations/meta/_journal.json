@@ -22,6 +22,20 @@
       "when": 1783584672843,
       "tag": "0002_clever_mesmero",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783591633268,
+      "tag": "0003_careless_spencer_smythe",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783591809626,
+      "tag": "0004_dusty_hemingway",
+      "breakpoints": true
     }
   ]
 }

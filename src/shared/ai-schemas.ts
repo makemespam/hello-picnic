@@ -6,6 +6,9 @@
 // `cardExtractionSchema`/`validateProductSchema` (docs/PROMPTS.md §3-4) still land in
 // WP-08, once that work package owns those field shapes.
 //
+// `validateProductSchema` (docs/PROMPTS.md §4, docs/workpackages/WP-10-basket-
+// optimizer.md §2) lands here now that the basket-optimizer work package owns it.
+//
 // `pingSchema` is a REAL, exercised-in-tests schema: it proves the generic plumbing
 // (callStructured's retry-on-invalid loop, the FAKE_AI fixture path, the per-provider
 // POST /api/ai/test connectivity check) without depending on those future schemas.
@@ -113,3 +116,16 @@ export const replaceSchema = z.object({
 });
 
 export type ReplaceResult = z.infer<typeof replaceSchema>;
+
+// --- Product validator (purpose: validate_product) — docs/PROMPTS.md §4 -------------
+
+// `index` is the 0-based position into the candidate list sent in the prompt (`null`
+// when no candidate is a suitable match at all -> resolve.ts falls back to
+// `betterSearchTerm`, or marks the item unresolved when that's also absent).
+export const validateProductSchema = z.object({
+  index: z.number().int().min(0).nullable(),
+  betterSearchTerm: z.string().min(1).max(200).optional(),
+  reason: z.string().min(1).max(500),
+});
+
+export type ValidateProductResult = z.infer<typeof validateProductSchema>;

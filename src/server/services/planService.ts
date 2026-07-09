@@ -32,6 +32,7 @@ import type { HouseholdPrefs } from '@/shared/settings';
 import { getWeekPromotions } from './picnicService';
 import { createRecipe, getRecipe, recordRecipePlanned, updateRecipe } from './recipeService';
 import { getHouseholdPrefs } from './settingsService';
+import { buildFromPlan } from './shoppingService';
 
 export class PlanServiceError extends Error {
   constructor(message: string) {
@@ -525,7 +526,7 @@ export async function approveMeal(planId: number, mealId: number): Promise<PlanD
   return getPlan(planId);
 }
 
-/** Locks the plan, bumps `recipes.times_planned`/`last_planned_at`, and promotes draft AI recipes to active. Shopping-list build lands in WP-10. */
+/** Locks the plan, bumps `recipes.times_planned`/`last_planned_at`, promotes draft AI recipes to active, and builds the aggregated shopping list (docs/workpackages/WP-10-basket-optimizer.md §1). */
 export async function finalize(planId: number): Promise<PlanDto | null> {
   const plan = await fetchPlanRow(planId);
   if (!plan) return null;
@@ -541,5 +542,6 @@ export async function finalize(planId: number): Promise<PlanDto | null> {
 
   const db = getDb();
   await db.update(plans).set({ status: 'final' }).where(eq(plans.id, planId));
+  await buildFromPlan(planId);
   return getPlan(planId);
 }

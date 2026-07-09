@@ -11,6 +11,18 @@ import type { PicnicArticle } from './selection';
 // rows -> tiles -> ...); this flattens any tree into the SELLING_UNIT/SINGLE_ARTICLE/
 // PRODUCT nodes it contains, deduped by id.
 
+// WP-10 (docs/ARCHITECTURE.md §7): same decorator shape promotions.ts reads off the
+// dedicated promotions feed — search results carry it too for promoted products.
+interface ArticleDecorator {
+  type?: string;
+  text?: string;
+}
+
+function promoLabelFromDecorators(obj: Record<string, unknown>): string | undefined {
+  const decorators = Array.isArray(obj.decorators) ? (obj.decorators as ArticleDecorator[]) : [];
+  return decorators.find((decorator) => decorator.type === 'PROMO_LABEL' && typeof decorator.text === 'string')?.text;
+}
+
 export function extractArticles(data: unknown): PicnicArticle[] {
   const articles: PicnicArticle[] = [];
   const seen = new Set<string>();
@@ -20,6 +32,7 @@ export function extractArticles(data: unknown): PicnicArticle[] {
     const name = typeof obj.name === 'string' ? obj.name : undefined;
     if (!id || !name || seen.has(id)) return;
     seen.add(id);
+    const promoLabel = promoLabelFromDecorators(obj);
     articles.push({
       id,
       name,
@@ -32,6 +45,7 @@ export function extractArticles(data: unknown): PicnicArticle[] {
             ? obj.image_id
             : undefined,
       unitQuantity: typeof obj.unit_quantity === 'string' ? obj.unit_quantity : undefined,
+      ...(promoLabel !== undefined ? { promoLabel } : {}),
     });
   }
 

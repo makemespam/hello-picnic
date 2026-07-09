@@ -12,6 +12,11 @@ export interface PicnicArticle {
   price: number; // cents
   imageId?: string;
   unitQuantity?: string;
+  // WP-10 (docs/ARCHITECTURE.md §7): raw Picnic multi-buy/discount label off the same
+  // PROMO_LABEL decorator promotions.ts already reads on the dedicated promotions feed —
+  // search results carry the same decorators for promoted products, so the basket
+  // optimizer can price a promo without a second round trip. `undefined` = no promo.
+  promoLabel?: string;
 }
 
 const STOPWORDS = new Set([

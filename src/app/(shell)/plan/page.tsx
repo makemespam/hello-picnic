@@ -5,7 +5,9 @@
 import { getLatestPlan } from '@/server/services/planService';
 import { listRecipes } from '@/server/services/recipeService';
 import { getHouseholdPrefs } from '@/server/services/settingsService';
+import { getShoppingList } from '@/server/services/shoppingService';
 import { recipeQuerySchema } from '@/shared/recipes';
+import type { CostSummary } from './_components/CostSummaryPanel';
 import { WeekplanView } from './_components/WeekplanView';
 
 // Plan state (draft/final, approvals) mutates constantly via the API routes below and
@@ -22,12 +24,29 @@ export default async function WeekplanPage() {
     getHouseholdPrefs(),
   ]);
 
+  // Cost summary (docs/workpackages/WP-10-basket-optimizer.md §6: "€ total + €/portie
+  // vs TARGET_COST_PER_SERVING delta") only makes sense once the plan is finalized —
+  // that's when shoppingService.buildFromPlan has aggregated + priced the list.
+  let costSummary: CostSummary | null = null;
+  if (plan?.status === 'final') {
+    const shoppingList = await getShoppingList(plan.id);
+    if (shoppingList) {
+      const totalServings = plan.servings * plan.mealCount;
+      costSummary = {
+        totalCents: shoppingList.totalPriceCents,
+        perServingCents: totalServings > 0 ? Math.round(shoppingList.totalPriceCents / totalServings) : 0,
+        targetPerServingCents: prefs.targetCostPerServingCents,
+      };
+    }
+  }
+
   return (
     <WeekplanView
       initialPlan={plan}
       libraryRecipes={libraryRecipes}
       defaultServings={prefs.servings}
       defaultMealCount={prefs.mealCount}
+      costSummary={costSummary}
     />
   );
 }
