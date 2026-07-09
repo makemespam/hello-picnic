@@ -11,6 +11,9 @@ const SENTINEL_MARKER = 'SENTINEL_93x';
 const SENTINELS = {
   picnicPassword: 'PICNIC_PW_SENTINEL_93x',
   anthropicApiKey: 'SK_ANT_SENTINEL_93x',
+  // WP-11: the Bring password is stored encrypted exactly like picnicPassword and must
+  // never surface via /api/bring/* or /api/settings.
+  bringPassword: 'BRING_PW_SENTINEL_93x',
 } as const;
 
 // Every API route that exists as of WP-09 (docs/ARCHITECTURE.md §4). Extend this
@@ -42,6 +45,11 @@ const API_ROUTES = [
   '/api/google/status',
   '/api/calendar/calendars',
   '/api/calendar/freebusy?week=2026-07-06',
+  // WP-11: /api/bring/status returns { connected, listUuid, listName } only — never
+  // token/password material. /api/bring/lists round-trips through the (fake) Bring API
+  // (a 401 "not connected" body is fine too — the crawl only cares about sentinels).
+  '/api/bring/status',
+  '/api/bring/lists',
 ];
 
 // Every shell page (src/shared/labels.ts NAV_ITEMS) plus the settings, kosten and
@@ -55,6 +63,7 @@ test.describe('secret-leak crawl', () => {
   test.beforeAll(async () => {
     await putSecret('picnicPassword', SENTINELS.picnicPassword);
     await putSecret('anthropicApiKey', SENTINELS.anthropicApiKey);
+    await putSecret('bringPassword', SENTINELS.bringPassword);
   });
 
   test('geen enkele API-response bevat een geheim', async ({ page }) => {

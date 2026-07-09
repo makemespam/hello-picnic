@@ -4,8 +4,14 @@
 // headers, candidate switcher Sheet, sticky basket-total footer with per-item send
 // progress, "Mandje leegmaken" with confirm. Orchestrates the resolve/send/toggle/switch
 // round trips against /api/shopping/* — shoppingService itself is server-only.
+//
+// Provider-aware (docs/workpackages/WP-11-bring-v2.md §3): with `list.provider ===
+// 'bring'` the resolve button, prices, candidates, promo chips, basket total and
+// "Mandje leegmaken" all disappear — the footer becomes a plain "Naar Bring (N items)"
+// and items send as name+quantity strings with the same per-item status pattern.
 import { useMemo, useState } from 'react';
 import { Alert } from '@/components/Alert';
+import { BringReloginBanner } from '@/components/BringReloginBanner';
 import { EmptyState } from '@/components/EmptyState';
 import { PageHeader } from '@/components/PageHeader';
 import { PicnicReloginBanner } from '@/components/PicnicReloginBanner';
@@ -47,6 +53,8 @@ export function BoodschappenView({ planId, initialList }: BoodschappenViewProps)
   const [sendProgress, setSendProgress] = useState<ProgressItemData[] | null>(null);
 
   const items = list?.items ?? [];
+  const provider = list?.provider ?? 'picnic';
+  const providerLabel = provider === 'bring' ? 'Bring' : 'Picnic';
   const groups = useMemo(() => groupByCategory(list?.items ?? []), [list]);
   const pantryItems = items.filter((item) => item.pantry);
   const unresolvedCount = items.filter((item) => !item.pantry && item.enabled && item.article === null).length;
@@ -84,16 +92,21 @@ export function BoodschappenView({ planId, initialList }: BoodschappenViewProps)
     setAuthExpired(false);
     // Honest async (docs/DESIGN_PRINCIPLES.md §1.5): show every eligible item as "Bezig"
     // immediately, then flip each to its real result once the batch response returns.
+    // Bring needs no resolved article — every enabled, non-pantry item is eligible.
     setSendProgress(
       items
-        .filter((item) => item.enabled && !item.pantry && item.article !== null && item.status !== 'added')
-        .map((item) => ({ id: String(item.id), label: item.article?.name ?? item.display, status: 'active' }))
+        .filter((item) => item.enabled && !item.pantry && item.status !== 'added' && (provider === 'bring' || item.article !== null))
+        .map((item) => ({
+          id: String(item.id),
+          label: provider === 'bring' ? item.display : (item.article?.name ?? item.display),
+          status: 'active',
+        }))
     );
     try {
       const { ok, status, body } = await fetchJson<ShoppingSendResultDto & { message?: string }>(`/api/shopping/${planId}/send`, { method: 'POST' });
       if (!ok) {
         if (status === 401) setAuthExpired(true);
-        else setError(body.message ?? 'Versturen naar Picnic is niet gelukt.');
+        else setError(body.message ?? `Versturen naar ${providerLabel} is niet gelukt.`);
         setSendProgress(null);
         return;
       }
@@ -101,9 +114,10 @@ export function BoodschappenView({ planId, initialList }: BoodschappenViewProps)
       setSendProgress(
         body.results.map((result) => {
           const item = body.list.items.find((i) => i.id === result.id);
+          const picnicLabel = item?.article?.name ?? item?.display ?? `Item ${result.id}`;
           return {
             id: String(result.id),
-            label: item?.article?.name ?? item?.display ?? `Item ${result.id}`,
+            label: provider === 'bring' ? (item?.display ?? `Item ${result.id}`) : picnicLabel,
             status: result.status === 'added' ? 'done' : 'error',
             detail: result.status === 'added' ? 'Toegevoegd' : (result.error ?? 'Mislukt'),
           };
@@ -187,20 +201,23 @@ export function BoodschappenView({ planId, initialList }: BoodschappenViewProps)
     <div className="flex flex-col gap-6 pb-28">
       <PageHeader
         title="Boodschappen"
-        description="Jullie weekmenu, klaar om naar Picnic te sturen."
+        description={`Jullie weekmenu, klaar om naar ${providerLabel} te sturen.`}
         action={
-          <button
-            type="button"
-            onClick={handleResolve}
-            disabled={resolving}
-            className="inline-flex h-11 items-center justify-center rounded-full border border-ink/15 px-5 text-sm font-semibold text-ink hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {resolving ? 'Producten koppelen…' : unresolvedCount > 0 ? `Producten koppelen (${unresolvedCount})` : 'Opnieuw koppelen'}
-          </button>
+          // Bring skips the resolve pipeline entirely (docs/workpackages/WP-11 §3).
+          provider === 'picnic' ? (
+            <button
+              type="button"
+              onClick={handleResolve}
+              disabled={resolving}
+              className="inline-flex h-11 items-center justify-center rounded-full border border-ink/15 px-5 text-sm font-semibold text-ink hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {resolving ? 'Producten koppelen…' : unresolvedCount > 0 ? `Producten koppelen (${unresolvedCount})` : 'Opnieuw koppelen'}
+            </button>
+          ) : undefined
         }
       />
 
-      {authExpired && <PicnicReloginBanner />}
+      {authExpired && (provider === 'bring' ? <BringReloginBanner /> : <PicnicReloginBanner />)}
       {error && <Alert variant="danger">{error}</Alert>}
 
       <div className="flex flex-col gap-6">
@@ -212,6 +229,7 @@ export function BoodschappenView({ planId, initialList }: BoodschappenViewProps)
                 <ShoppingItemRow
                   key={item.id}
                   item={item}
+                  provider={provider}
                   busy={busyItemId === item.id}
                   onToggle={(enabled) => handleToggle(item, enabled)}
                   onOpenCandidates={() => setSheetItemId(item.id)}
@@ -237,37 +255,47 @@ export function BoodschappenView({ planId, initialList }: BoodschappenViewProps)
 
       {sendProgress && (
         <div className="flex flex-col gap-2">
-          <h3 className="text-sm font-semibold text-ink-muted">Versturen naar Picnic</h3>
+          <h3 className="text-sm font-semibold text-ink-muted">Versturen naar {providerLabel}</h3>
           <ProgressList items={sendProgress} />
         </div>
       )}
 
       <div className="sticky bottom-[calc(56px+env(safe-area-inset-bottom))] flex flex-col gap-2 rounded-lg border border-ink/10 bg-surface p-4 shadow-xl md:static md:bottom-auto">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-ink-muted">Totaal ({list.itemCount} items)</span>
-          <span className="text-base font-bold text-ink">{formatEuro(list.totalPriceCents)}</span>
-        </div>
+        {provider === 'picnic' && (
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-ink-muted">Totaal ({list.itemCount} items)</span>
+            <span className="text-base font-bold text-ink">{formatEuro(list.totalPriceCents)}</span>
+          </div>
+        )}
         <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={handleClearCart}
-            disabled={clearing || sending}
-            className="inline-flex h-11 flex-1 items-center justify-center rounded-full border border-ink/15 px-4 text-sm font-semibold text-ink hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {clearing ? 'Bezig…' : 'Mandje leegmaken'}
-          </button>
+          {provider === 'picnic' && (
+            <button
+              type="button"
+              onClick={handleClearCart}
+              disabled={clearing || sending}
+              className="inline-flex h-11 flex-1 items-center justify-center rounded-full border border-ink/15 px-4 text-sm font-semibold text-ink hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {clearing ? 'Bezig…' : 'Mandje leegmaken'}
+            </button>
+          )}
           <button
             type="button"
             onClick={handleSend}
             disabled={sending || list.itemCount === 0}
             className="inline-flex h-11 flex-[2] items-center justify-center rounded-full bg-primary px-4 text-sm font-semibold text-white shadow-sm hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {sending ? 'Bezig met versturen…' : `Naar Picnic (${list.itemCount} items · ${formatEuro(list.totalPriceCents)})`}
+            {sending
+              ? 'Bezig met versturen…'
+              : provider === 'bring'
+                ? `Naar Bring (${list.itemCount} items)`
+                : `Naar Picnic (${list.itemCount} items · ${formatEuro(list.totalPriceCents)})`}
           </button>
         </div>
       </div>
 
-      <CandidateSheet item={sheetItem} busy={busyItemId === sheetItem?.id} onClose={() => setSheetItemId(null)} onSelect={handleSwitchCandidate} />
+      {provider === 'picnic' && (
+        <CandidateSheet item={sheetItem} busy={busyItemId === sheetItem?.id} onClose={() => setSheetItemId(null)} onSelect={handleSwitchCandidate} />
+      )}
     </div>
   );
 }

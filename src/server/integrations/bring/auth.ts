@@ -11,12 +11,11 @@
 // legacy/src/app/api/bring/items/route.ts), but the real Bring API supports a proper
 // OAuth-style refresh grant on the same /v2/bringauth endpoint, which this client uses
 // instead so a stored password isn't needed for every retry.
-import 'server-only';
 import { eq } from 'drizzle-orm';
 import { decryptSecret, encryptSecret } from '@/server/auth/crypto';
 import { getDb } from '@/server/db/client';
 import { integrationTokens } from '@/server/db/schema';
-import { authHeaders, bringRequest } from './client';
+import { bringRequest } from './client';
 import { BringAuthExpired, BringUnknown } from './errors';
 
 export interface BringLoginResult {
@@ -172,5 +171,3 @@ async function parseBody<T>(res: Response): Promise<T> {
   const text = await res.text();
   return (text ? JSON.parse(text) : undefined) as T;
 }
-
-export { authHeaders };

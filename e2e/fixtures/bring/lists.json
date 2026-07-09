@@ -1,0 +1,6 @@
+{
+  "lists": [
+    { "listUuid": "fake-bring-list-boodschappen", "name": "Boodschappen", "theme": "ch.publisheria.bring.theme.home" },
+    { "listUuid": "fake-bring-list-weekend", "name": "Weekendlijst", "theme": "ch.publisheria.bring.theme.home" }
+  ]
+}

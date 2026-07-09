@@ -1,15 +1,19 @@
 // API/integration layer (docs/TESTING.md §1) — real Postgres, FAKE_AI=1 + FAKE_PICNIC=1
 // (set in .env). Covers docs/workpackages/WP-10-basket-optimizer.md's acceptance
 // criteria: aggregation fixture (cross-recipe breakdown labels, pantry exclusion, unit-
-// aware merging), resolve/send idempotency + resumability, candidate switching.
+// aware merging), resolve/send idempotency + resumability, candidate switching — plus
+// docs/workpackages/WP-11-bring-v2.md §3's provider branch (bring send as name+quantity
+// strings, resolve no-op, provider-aware totals).
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { encryptSecret } from '@/server/auth/crypto';
 import { getDb } from '@/server/db/client';
 import { integrationTokens, planMeals, plans, recipeIngredients, recipes, settings, shoppingItems } from '@/server/db/schema';
+import { BringAuthExpired } from '@/server/integrations/bring/errors';
+import * as bringListsModule from '@/server/integrations/bring/lists';
 import * as searchModule from '@/server/integrations/picnic/search';
 import { PicnicAuthExpired } from '@/server/integrations/picnic/errors';
-import { putHouseholdPrefs } from './settingsService';
+import { putBringListSelection, putHouseholdPrefs } from './settingsService';
 import { createRecipe } from './recipeService';
 import {
   buildFromPlan,
@@ -31,6 +35,7 @@ async function resetTables() {
   await db.delete(recipes);
   await db.delete(settings);
   await db.delete(integrationTokens).where(eq(integrationTokens.provider, 'picnic'));
+  await db.delete(integrationTokens).where(eq(integrationTokens.provider, 'bring'));
 }
 
 beforeEach(resetTables);
@@ -267,6 +272,95 @@ describe('sendPlanToCart', () => {
     await sendPlanToCart(planId);
     const cleared = await clearCartForPlan(planId);
     expect(cleared.items[0]?.status).toBe('open');
+  });
+});
+
+describe('sendPlanToCart — provider bring (docs/workpackages/WP-11-bring-v2.md §3)', () => {
+  async function bringPlan(): Promise<number> {
+    await putHouseholdPrefs({ shoppingProvider: 'bring' });
+    await putBringListSelection({ listUuid: 'lijst-1', listName: 'Boodschappen' });
+    const recipe = await createRecipe(
+      recipeInput('Recept', [
+        { nameKey: 'kipfilet', display: 'Kipfilet', amount: 600, unit: 'g', category: 'vis' },
+        { nameKey: 'aardappelen', display: 'Aardappelen', amount: 1.5, unit: 'kg', category: 'groenten' },
+      ])
+    );
+    const planId = await seedPlan([recipe.id], [null]);
+    await buildFromPlan(planId);
+    return planId;
+  }
+
+  it('sends enabled items as name + Dutch quantity spec strings to the selected list — no resolve needed', async () => {
+    const planId = await bringPlan();
+    const addItemSpy = vi.spyOn(bringListsModule, 'addItem').mockResolvedValue(undefined);
+
+    const result = await sendPlanToCart(planId);
+
+    expect(result.added).toBe(2);
+    expect(result.failed).toBe(0);
+    expect(addItemSpy.mock.calls).toEqual([
+      ['lijst-1', 'Aardappelen', '1,5 kg'],
+      ['lijst-1', 'Kipfilet', '600 g'],
+    ]);
+    expect(result.list.provider).toBe('bring');
+    expect(result.list.items.every((item) => item.status === 'added')).toBe(true);
+  });
+
+  it('is idempotent: a second send skips already-added items', async () => {
+    const planId = await bringPlan();
+    const addItemSpy = vi.spyOn(bringListsModule, 'addItem').mockResolvedValue(undefined);
+
+    await sendPlanToCart(planId);
+    const second = await sendPlanToCart(planId);
+
+    expect(second.added).toBe(0);
+    expect(second.skipped).toBe(2);
+    expect(addItemSpy).toHaveBeenCalledTimes(2); // only the first send hits Bring
+  });
+
+  it('records a per-item failure without aborting the batch, and only that item is retried', async () => {
+    const planId = await bringPlan();
+    const addItemSpy = vi
+      .spyOn(bringListsModule, 'addItem')
+      .mockImplementation((_listUuid, name) => (name === 'Kipfilet' ? Promise.reject(new Error('kapot')) : Promise.resolve(undefined)));
+
+    const first = await sendPlanToCart(planId);
+    expect(first.added).toBe(1);
+    expect(first.failed).toBe(1);
+    const failedItem = first.list.items.find((item) => item.display === 'Kipfilet');
+    expect(failedItem?.status).toBe('failed');
+    expect(failedItem?.lastError).toContain('Bring');
+
+    addItemSpy.mockResolvedValue(undefined);
+    const second = await sendPlanToCart(planId);
+    expect(second.added).toBe(1); // only the failed item is resent
+  });
+
+  it('throws a typed BringAuthExpired when no list is selected (send aborts before any item)', async () => {
+    await putHouseholdPrefs({ shoppingProvider: 'bring' });
+    const recipe = await createRecipe(recipeInput('Recept', [{ nameKey: 'broccoli', display: 'Broccoli', amount: 500, unit: 'g', category: 'groenten' }]));
+    const planId = await seedPlan([recipe.id], [null]);
+    await buildFromPlan(planId);
+
+    const addItemSpy = vi.spyOn(bringListsModule, 'addItem').mockResolvedValue(undefined);
+    await expect(sendPlanToCart(planId)).rejects.toThrow(BringAuthExpired);
+    expect(addItemSpy).not.toHaveBeenCalled();
+  });
+
+  it('getShoppingList reports provider bring with itemCount = enabled non-pantry items and no basket total', async () => {
+    const planId = await bringPlan();
+    const list = await getShoppingList(planId);
+    expect(list?.provider).toBe('bring');
+    expect(list?.itemCount).toBe(2); // no resolve/prices needed to be sendable
+    expect(list?.totalPriceCents).toBe(0);
+  });
+
+  it('resolvePlan is a no-op under provider bring', async () => {
+    const planId = await bringPlan();
+    const searchSpy = vi.spyOn(searchModule, 'searchArticles');
+    const result = await resolvePlan(planId);
+    expect(result).toMatchObject({ resolved: 0, failed: 0 });
+    expect(searchSpy).not.toHaveBeenCalled();
   });
 });
 

@@ -6,11 +6,21 @@ import { Checkbox } from '@/components/Checkbox';
 import { cn } from '@/components/cn';
 import { Field } from '@/components/Field';
 import { Input } from '@/components/Input';
+import { RadioCard } from '@/components/RadioCard';
 import { Select } from '@/components/Select';
 import { Textarea } from '@/components/Textarea';
 import { AI_PURPOSES, MEAL_STYLE_LABEL, MEAL_STYLES, PURPOSE_LABEL, RECIPE_TYPES, TYPE_LABEL, type AiPurpose } from '@/shared/labels';
 import { DEFAULT_PANTRY, DEFAULT_PANTRY_KEYS } from '@/shared/pantry';
-import { SECRET_KEYS, type AiModelOverrides, type HouseholdPrefs, type PublicSettingsDto, type SecretKey, type SettingsPutInput } from '@/shared/settings';
+import {
+  SECRET_KEYS,
+  type AiModelOverrides,
+  type HouseholdPrefs,
+  type PublicSettingsDto,
+  type SecretKey,
+  type SettingsPutInput,
+  type ShoppingProvider,
+} from '@/shared/settings';
+import { BringConnectCard, type BringConnectCardProps } from './BringConnectCard';
 import { GoogleConnectCard } from './GoogleConnectCard';
 import { PicnicConnectCard, type PicnicConnectCardProps } from './PicnicConnectCard';
 
@@ -30,7 +40,14 @@ export interface InstellingenFormProps {
   defaultModelIdByPurpose: Partial<Record<AiPurpose, string>>;
   initialPicnicStatus: PicnicConnectCardProps['initialStatus'];
   initialGoogleStatus: { connected: boolean; calendarId: string | null };
+  initialBringStatus: BringConnectCardProps['initialStatus'];
 }
+
+// Dutch copy for the provider toggle (docs/workpackages/WP-11-bring-v2.md §2).
+const SHOPPING_PROVIDER_OPTIONS: Array<{ value: ShoppingProvider; label: string; description: string }> = [
+  { value: 'picnic', label: 'Picnic', description: 'Producten koppelen, prijzen en aanbiedingen — mandje wordt gevuld.' },
+  { value: 'bring', label: 'Bring', description: 'Eenvoudige lijst met naam en hoeveelheid — geen prijzen.' },
+];
 
 type SecretDraft = Record<SecretKey, string | null>;
 
@@ -177,10 +194,10 @@ export function InstellingenForm({
   defaultModelIdByPurpose,
   initialPicnicStatus,
   initialGoogleStatus,
+  initialBringStatus,
 }: InstellingenFormProps) {
   const [prefs, setPrefs] = useState<HouseholdPrefs>(initial.householdPrefs);
   const [overrides, setOverrides] = useState<AiModelOverrides>(initial.aiModelOverrides);
-  const [bringEmail, setBringEmail] = useState(initial.bringEmail);
   const [secrets, setSecrets] = useState<SecretDraft>(emptySecretDraft());
   const [configured, setConfigured] = useState(() => configuredFlagsFrom(initial));
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -193,10 +210,11 @@ export function InstellingenForm({
     event.preventDefault();
     setStatus('saving');
 
+    // No bringEmail here: the Bring connect card persists it itself (bringService.
+    // connect), and re-sending this form's stale initial value would overwrite it.
     const payload: SettingsPutInput = {
       householdPrefs: prefs,
       aiModelOverrides: overrides,
-      bringEmail,
       ...secrets,
     };
 
@@ -211,7 +229,6 @@ export function InstellingenForm({
 
       setPrefs(data.householdPrefs);
       setOverrides(data.aiModelOverrides);
-      setBringEmail(data.bringEmail);
       setSecrets(emptySecretDraft());
       setConfigured(configuredFlagsFrom(data));
       setStatus('saved');
@@ -388,27 +405,35 @@ export function InstellingenForm({
         </div>
       </Card>
 
+      <Card title="Boodschappen-dienst" description="Waar je boodschappenlijst naartoe gaat. Vergeet niet op te slaan.">
+        <fieldset>
+          <legend className="sr-only">Boodschappen-dienst</legend>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {SHOPPING_PROVIDER_OPTIONS.map((option) => (
+              <RadioCard
+                key={option.value}
+                name="shoppingProvider"
+                value={option.value}
+                label={option.label}
+                description={option.description}
+                checked={prefs.shoppingProvider === option.value}
+                onChange={() => setPrefs({ ...prefs, shoppingProvider: option.value })}
+              />
+            ))}
+          </div>
+        </fieldset>
+      </Card>
+
       <Card title="Picnic" description="Voor het vullen van de winkelmand.">
         <PicnicConnectCard initialEmail={initial.picnicEmail} initialStatus={initialPicnicStatus} />
       </Card>
 
-      <Card title="Google Agenda" description="Voor kook-voorbereidingen als afspraak in de agenda.">
-        <GoogleConnectCard initialConnected={initialGoogleStatus.connected} initialCalendarId={initial.googleCalendarId} />
+      <Card title="Bring" description="Alternatief voor de boodschappenlijst: naam en hoeveelheid, zonder prijzen.">
+        <BringConnectCard initialEmail={initial.bringEmail} initialStatus={initialBringStatus} />
       </Card>
 
-      <Card title="Bring" description="Alternatief voor de boodschappenlijst.">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="E-mailadres" htmlFor="bringEmail">
-            <Input id="bringEmail" type="email" value={bringEmail} onChange={(event) => setBringEmail(event.target.value)} />
-          </Field>
-          <SecretField
-            id="bringPassword"
-            label="Wachtwoord"
-            value={secrets.bringPassword}
-            configured={configured.bringPassword}
-            onChange={(value) => setSecret('bringPassword', value)}
-          />
-        </div>
+      <Card title="Google Agenda" description="Voor kook-voorbereidingen als afspraak in de agenda.">
+        <GoogleConnectCard initialConnected={initialGoogleStatus.connected} initialCalendarId={initial.googleCalendarId} />
       </Card>
 
       <Card title="AI-providers" description="API-sleutels voor tekst-AI (plannen, scannen, valideren).">

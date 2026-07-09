@@ -1,16 +1,18 @@
 // Low-level Bring fetch wrapper (docs/workpackages/WP-11-bring-v2.md §1). Every Bring
-// call — auth.ts/lists.ts/items.ts — goes through `bringRequest()` so the device
-// headers and FAKE_BRING dispatch live in exactly one place, mirroring
+// call — auth.ts/lists.ts — goes through `bringRequest()` so the API-key header and
+// FAKE_BRING dispatch live in exactly one place, mirroring
 // src/server/integrations/picnic/client.ts.
 //
-// `import 'server-only'` (docs/ARCHITECTURE.md §9.6, docs/workpackages/WP-11 §1
-// regression guard): if any client component ever imported this module transitively,
-// the build fails instead of silently bundling BRING_API_KEY into client JS — the exact
-// v1 mistake (legacy/src/lib/bring.ts hardcoded the key straight in source, which is
-// even worse than "env var in a server bundle", but this guard also covers that milder
-// leak). `src/server/integrations/bring/envKeyGuard.test.ts` asserts this import stays
-// in place and that no hardcoded key literal creeps back into src/.
-import 'server-only';
+// BRING_API_KEY comes STRICTLY from env (docs/ARCHITECTURE.md §9.6, docs/workpackages/
+// WP-11 §1): v1 hardcoded the key as a string literal in legacy/src/lib/bring.ts, which
+// shipped it to every client bundle. An env read can't be inlined into client JS (Next
+// only inlines NEXT_PUBLIC_* vars), and `envKeyGuard.test.ts` in this directory is the
+// automated regression guard: no v1 key literal anywhere in src/, BRING_API_KEY
+// referenced only under src/server/, no client component importing this integration,
+// and — when a build exists — no trace in .next/static client chunks. (Deliberately no
+// `import 'server-only'` marker: the e2e specs import service modules that reach this
+// file into a plain Node process, where that package throws by design; the picnic
+// integration follows the same convention.)
 import { randomUUID } from 'crypto';
 import { fakeBringFetch, isFakeBring } from './fakeBring';
 import { BringUnknown } from './errors';

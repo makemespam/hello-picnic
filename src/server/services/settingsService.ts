@@ -136,6 +136,37 @@ export async function putGoogleCalendarId(calendarId: string): Promise<void> {
   await putPlainString(GOOGLE_CALENDAR_ID_KEY, calendarId);
 }
 
+// WP-11 (docs/workpackages/WP-11-bring-v2.md §2): which Bring list shopping items get
+// pushed to — picked from GET /api/bring/lists via POST /api/bring/select-list. Plain
+// (non-secret) strings, same pattern as googleCalendarId (a list uuid is an opaque
+// identifier, not a secret).
+const BRING_LIST_UUID_KEY = 'bringListUuid';
+const BRING_LIST_NAME_KEY = 'bringListName';
+
+export interface BringListSelection {
+  listUuid: string;
+  listName: string;
+}
+
+export async function getBringListSelection(): Promise<BringListSelection | null> {
+  const [listUuid, listName] = await Promise.all([getPlainString(BRING_LIST_UUID_KEY), getPlainString(BRING_LIST_NAME_KEY)]);
+  return listUuid ? { listUuid, listName } : null;
+}
+
+export async function putBringListSelection(selection: BringListSelection): Promise<void> {
+  await Promise.all([putPlainString(BRING_LIST_UUID_KEY, selection.listUuid), putPlainString(BRING_LIST_NAME_KEY, selection.listName)]);
+}
+
+export async function clearBringListSelection(): Promise<void> {
+  await Promise.all([deleteRaw(BRING_LIST_UUID_KEY), deleteRaw(BRING_LIST_NAME_KEY)]);
+}
+
+/** The active shopping provider (docs/workpackages/WP-11 §2) — shorthand over getHouseholdPrefs for the gates in picnicService/shoppingService. */
+export async function getShoppingProvider(): Promise<HouseholdPrefs['shoppingProvider']> {
+  const prefs = await getHouseholdPrefs();
+  return prefs.shoppingProvider;
+}
+
 // --- Secrets -------------------------------------------------------------------
 
 export async function isSecretConfigured(key: SecretKey): Promise<boolean> {

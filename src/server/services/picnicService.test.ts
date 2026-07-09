@@ -179,6 +179,31 @@ describe('getWeekPromotions', () => {
     await expect(getWeekPromotions()).resolves.toEqual([]);
   });
 
+  it("returns [] without any Picnic call when shoppingProvider is 'bring' (WP-11 gate, closes WP-09's flagged deviation)", async () => {
+    const db = getDb();
+    await db.insert(integrationTokens).values({
+      provider: 'picnic',
+      payloadEncrypted: encryptSecret(JSON.stringify({ status: 'connected', authToken: 'tok-good', email: 'gezin@example.com' })),
+      expiresAt: null,
+    });
+    await putSettings({ householdPrefs: { shoppingProvider: 'bring' } });
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getWeekPromotions()).resolves.toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    // Flipping back to picnic immediately re-enables the feed (gate sits before the cache).
+    await putSettings({ householdPrefs: { shoppingProvider: 'picnic' } });
+    fetchMock.mockImplementation((url: string) => {
+      if (url.includes('/cart')) return Promise.resolve(new Response('{}', { status: 200 }));
+      return Promise.resolve(
+        new Response(JSON.stringify({ items: [{ type: 'SINGLE_ARTICLE', id: 'p1', name: 'Product', price: 100 }] }), { status: 200 })
+      );
+    });
+    await expect(getWeekPromotions()).resolves.toEqual([{ id: 'p1', name: 'Product', priceCents: 100 }]);
+  });
+
   it('degrades gracefully when the promotions call itself fails (e.g. rate-limited)', async () => {
     const db = getDb();
     await db.insert(integrationTokens).values({

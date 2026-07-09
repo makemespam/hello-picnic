@@ -1,7 +1,9 @@
 // Shopping-list domain service (docs/ARCHITECTURE.md §3/§4/§7, docs/workpackages/WP-10-
-// basket-optimizer.md). Aggregation across a plan's meals (buildFromPlan, wired into
-// planService.finalize), the resolve pipeline (search -> rank -> validate -> optimize)
-// and the idempotent Picnic-cart send. Pages never call this directly for mutations —
+// basket-optimizer.md, docs/workpackages/WP-11-bring-v2.md). Aggregation across a
+// plan's meals (buildFromPlan, wired into planService.finalize), the resolve pipeline
+// (search -> rank -> validate -> optimize; Picnic only) and the idempotent send —
+// provider-branched: Picnic cart, or plain name+quantity strings to the selected Bring
+// list (WP-11 §3). Pages never call this directly for mutations —
 // only the /api/shopping/* route handlers do; the boodschappen Server Component page
 // reads it directly for its initial render (same "pages read services directly for SSR"
 // pattern as src/app/(shell)/plan/page.tsx).
@@ -11,6 +13,9 @@ import { HOUSEHOLD_ID, planMeals, plans, recipeIngredients, recipes, settings, s
 import { callStructured } from '@/server/integrations/ai/callStructured';
 import { AiError } from '@/server/integrations/ai/errors';
 import { buildValidateProductPrompt, type ValidateProductCandidate } from '@/server/integrations/ai/prompts/validateProduct';
+import { BringAuthExpired, BringError } from '@/server/integrations/bring/errors';
+import { formatBringItem } from '@/server/integrations/bring/format';
+import { addItem as addBringItem } from '@/server/integrations/bring/lists';
 import { addProduct, clearCart } from '@/server/integrations/picnic/cart';
 import { Picnic2FARequired, PicnicAuthExpired, PicnicError } from '@/server/integrations/picnic/errors';
 import { parsePackageQuantity, rankPicnicArticles, type PicnicArticle } from '@/server/integrations/picnic/selection';
@@ -29,8 +34,9 @@ import {
   type ShoppingSendItemResult,
   type ShoppingSendResultDto,
 } from '@/shared/shopping';
+import type { ShoppingProvider } from '@/shared/settings';
 import { choosePackPlan, classifyPromoLabel, normalizeAmount, type NormalizedAmount, type PackCandidate } from './basketOptimizer';
-import { getHouseholdPrefs } from './settingsService';
+import { getBringListSelection, getHouseholdPrefs, getShoppingProvider } from './settingsService';
 
 export class ShoppingServiceError extends Error {
   constructor(message: string) {
@@ -242,7 +248,13 @@ function toItemDto(row: ShoppingItemRow): ShoppingItemDto {
   };
 }
 
-function computeTotals(items: ShoppingItemDto[]): { totalPriceCents: number; itemCount: number } {
+function computeTotals(items: ShoppingItemDto[], provider: ShoppingProvider): { totalPriceCents: number; itemCount: number } {
+  // Bring skips resolve/optimizer/prices entirely (docs/workpackages/WP-11-bring-v2.md
+  // §3): every enabled, non-pantry item is sendable as a plain name+quantity string, so
+  // that's the footer count; there is no basket total.
+  if (provider === 'bring') {
+    return { totalPriceCents: 0, itemCount: items.filter((item) => item.enabled && !item.pantry).length };
+  }
   const counted = items.filter((item) => item.enabled && !item.pantry && item.priceCents !== null);
   return {
     totalPriceCents: counted.reduce((sum, item) => sum + (item.priceCents ?? 0), 0),
@@ -255,14 +267,17 @@ async function fetchItemRows(planId: number): Promise<ShoppingItemRow[]> {
   return db.select().from(shoppingItems).where(eq(shoppingItems.planId, planId)).orderBy(shoppingItems.sortOrder);
 }
 
-/** GET /api/shopping/:planId. `null` when the plan itself doesn't exist. */
+/** GET /api/shopping/:planId. `null` when the plan itself doesn't exist. `provider` is
+ * read live from the household setting (not from the rows) so toggling the provider in
+ * Instellingen re-skins an already-built list immediately (docs/workpackages/WP-11 §3). */
 export async function getShoppingList(planId: number): Promise<ShoppingListDto | null> {
   const db = getDb();
   const [plan] = await db.select({ id: plans.id }).from(plans).where(and(eq(plans.id, planId), eq(plans.householdId, HOUSEHOLD_ID))).limit(1);
   if (!plan) return null;
 
+  const provider = await getShoppingProvider();
   const items = (await fetchItemRows(planId)).map(toItemDto);
-  return { planId, items, ...computeTotals(items) };
+  return { planId, items, provider, ...computeTotals(items, provider) };
 }
 
 // --- Product cache (24h, term+category), stored in the `settings` table -------------
@@ -435,6 +450,14 @@ async function resolveItem(row: ShoppingItemRow): Promise<void> {
  * workpackages/WP-10-basket-optimizer.md §2 "resumable").
  */
 export async function resolvePlan(planId: number, options: { force?: boolean } = {}): Promise<ShoppingResolveResultDto> {
+  // Bring needs no product resolve (docs/workpackages/WP-11-bring-v2.md §3: items are
+  // sent as plain name+quantity strings) — a stray resolve call is a harmless no-op.
+  if ((await getShoppingProvider()) === 'bring') {
+    const list = await getShoppingList(planId);
+    if (!list) throw new ShoppingServiceError('Weekplan niet gevonden.');
+    return { resolved: 0, failed: 0, list };
+  }
+
   const rows = await fetchItemRows(planId);
   const targets = rows.filter((row) => {
     if (row.pantry) return false;
@@ -464,16 +487,22 @@ export async function resolvePlan(planId: number, options: { force?: boolean } =
   return { resolved, failed, list };
 }
 
-// --- Send to Picnic cart --------------------------------------------------------------
+// --- Send to Picnic cart / Bring list ---------------------------------------------------
 
 /**
- * POST /api/shopping/:planId/send. Idempotent: items already `status: 'added'` are
- * skipped. Sequential (cart.ts's addProduct goes through the shared rate limiter);
- * per-item failures (e.g. a rate-limit that outlives the client's own retry) are
- * recorded on the row and don't stop the rest of the batch — only a Picnic auth/2FA
- * error aborts the whole send so the route can surface the re-login banner.
+ * POST /api/shopping/:planId/send — provider branch (docs/workpackages/WP-11-bring-v2.md
+ * §3): the same route/service entry point pushes to the Picnic cart or the selected
+ * Bring list depending on the household's shoppingProvider setting. Both paths are
+ * idempotent (items already `status: 'added'` are skipped), sequential, and record
+ * per-item failures on the row without stopping the batch — only an auth error aborts
+ * the whole send so the route can surface the re-login banner.
  */
 export async function sendPlanToCart(planId: number): Promise<ShoppingSendResultDto> {
+  const provider = await getShoppingProvider();
+  return provider === 'bring' ? sendPlanToBring(planId) : sendPlanToPicnic(planId);
+}
+
+async function sendPlanToPicnic(planId: number): Promise<ShoppingSendResultDto> {
   const rows = await fetchItemRows(planId);
   const targets = rows.filter((row) => row.enabled && !row.pantry && row.status !== 'added' && parseArticleJson(row.articleJson)?.article != null);
 
@@ -489,7 +518,7 @@ export async function sendPlanToCart(planId: number): Promise<ShoppingSendResult
 
     try {
       await addProduct(article.id, row.articleCount ?? 1);
-      await db.update(shoppingItems).set({ status: 'added', lastError: null }).where(eq(shoppingItems.id, row.id));
+      await db.update(shoppingItems).set({ status: 'added', provider: 'picnic', lastError: null }).where(eq(shoppingItems.id, row.id));
       results.push({ id: row.id, status: 'added' });
       added += 1;
     } catch (error) {
@@ -507,9 +536,58 @@ export async function sendPlanToCart(planId: number): Promise<ShoppingSendResult
   return { added, failed: failedCount, skipped, results, list };
 }
 
-/** DELETE /api/shopping/:planId/send ("Mandje leegmaken"): clears the live Picnic cart and resets this plan's `added` rows back to `open` so they can be resent. */
+/**
+ * Bring send (docs/workpackages/WP-11-bring-v2.md §3): no resolve/optimizer/prices —
+ * every enabled, non-pantry, not-yet-added item goes to the selected list as
+ * '{display} — {totalAmount} {unit}' (name + Dutch quantity spec, formatBringItem).
+ * Idempotent on our side (added rows are skipped) AND on Bring's (adding the same
+ * itemId again is an upsert, no duplicate row). BringAuthExpired aborts the batch
+ * (withBringAuth already refreshed once before raising it).
+ */
+async function sendPlanToBring(planId: number): Promise<ShoppingSendResultDto> {
+  const selection = await getBringListSelection();
+  if (!selection) {
+    throw new BringAuthExpired('Geen Bring-lijst gekozen. Kies een lijst bij Instellingen.');
+  }
+
+  const rows = await fetchItemRows(planId);
+  const targets = rows.filter((row) => row.enabled && !row.pantry && row.status !== 'added');
+
+  const db = getDb();
+  const results: ShoppingSendItemResult[] = [];
+  let added = 0;
+  let failedCount = 0;
+
+  for (const row of targets) {
+    const item = formatBringItem(row.display, row.totalAmount, row.unit);
+    try {
+      await addBringItem(selection.listUuid, item.name, item.spec);
+      await db.update(shoppingItems).set({ status: 'added', provider: 'bring', lastError: null }).where(eq(shoppingItems.id, row.id));
+      results.push({ id: row.id, status: 'added' });
+      added += 1;
+    } catch (error) {
+      if (error instanceof BringAuthExpired) throw error;
+      const message = error instanceof BringError ? error.message : 'Onbekende fout bij toevoegen aan Bring.';
+      await db.update(shoppingItems).set({ status: 'failed', lastError: message }).where(eq(shoppingItems.id, row.id));
+      results.push({ id: row.id, status: 'failed', error: message });
+      failedCount += 1;
+    }
+  }
+
+  const list = await getShoppingList(planId);
+  if (!list) throw new ShoppingServiceError('Weekplan niet gevonden.');
+  const skipped = rows.filter((row) => row.status === 'added').length;
+  return { added, failed: failedCount, skipped, results, list };
+}
+
+/** DELETE /api/shopping/:planId/send ("Mandje leegmaken"): clears the live Picnic cart
+ * and resets this plan's `added` rows back to `open` so they can be resent. With
+ * provider 'bring' the remote clear is skipped (Bring has no clear-list API in this
+ * client; the UI hides the button) — only the local rows are reset. */
 export async function clearCartForPlan(planId: number): Promise<ShoppingListDto> {
-  await clearCart();
+  if ((await getShoppingProvider()) === 'picnic') {
+    await clearCart();
+  }
   const db = getDb();
   await db
     .update(shoppingItems)

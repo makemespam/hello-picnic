@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/PageHeader';
 import { DEFAULT_MODEL_BY_PURPOSE, getModelsForPurpose, type AiModel } from '@/server/integrations/ai/models';
+import { getConnectionStatus as getBringConnectionStatus } from '@/server/services/bringService';
 import { getGoogleStatus } from '@/server/services/calendarService';
 import { getConnectionStatus } from '@/server/services/picnicService';
 import { getPublicSettings } from '@/server/services/settingsService';
@@ -19,7 +20,12 @@ export const dynamic = 'force-dynamic';
 // same way — its live "is the stored token still good?" probe belongs on first paint,
 // not behind an extra client round trip.
 export default async function InstellingenPage() {
-  const [settings, picnicStatus, googleStatus] = await Promise.all([getPublicSettings(), getConnectionStatus(), getGoogleStatus()]);
+  const [settings, picnicStatus, googleStatus, bringStatus] = await Promise.all([
+    getPublicSettings(),
+    getConnectionStatus(),
+    getGoogleStatus(),
+    getBringConnectionStatus(),
+  ]);
   const modelsByPurpose = Object.fromEntries(
     AI_PURPOSES.map((purpose) => [purpose, getModelsForPurpose(purpose)])
   ) as Record<AiPurpose, AiModel[]>;
@@ -36,6 +42,7 @@ export default async function InstellingenPage() {
         defaultModelIdByPurpose={DEFAULT_MODEL_BY_PURPOSE}
         initialPicnicStatus={picnicStatus}
         initialGoogleStatus={googleStatus}
+        initialBringStatus={bringStatus}
       />
     </div>
   );

@@ -142,6 +142,8 @@ Alternative (owner may buy a mini-PC): identical compose stack runs on any Linux
 
 | WP-12 | ✅ done | 2026-07-11 | Sonnet builder + architect (520 unit + 71 e2e green). Google OAuth (state-cookie CSRF-validated, tokens encrypted, proactive refresh), calendarService.publishPlan ('🍳 {titel} bereiden' at dinnerTime−cook time, DST-tested around both 2026 transitions, idempotent re-publish updates events), day-assignment UI + published indicators, freebusy 'druk' hints, FAKE_GOOGLE fixture mode, deploy/GOOGLE_OAUTH.md console walkthrough. Owner deploy-time task: create the GCP OAuth client and run a real connect round. |
 
+| WP-11 | ✅ done | 2026-07-11 | Sonnet builder + architect (555 unit + 72 e2e green). Typed Bring client (BRING_API_KEY strictly env + server-only, enforced by envKeyGuard test — v1 regression closed), encrypted tokens with refresh-on-401-once, shoppingProvider household setting with RadioCard toggle, simplified name+quantity send flow on /boodschappen for Bring (idempotent, per-item status), promotions gate on provider closes WP-09's flagged deviation (tested), FAKE_BRING fixture mode. |
+
 ## 10. Risks
 
 | Risk | Mitigation |

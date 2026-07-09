@@ -1,0 +1,8 @@
+{
+  "uuid": "fake-bring-user-uuid",
+  "publicUuid": "fake-bring-public-uuid",
+  "access_token": "FAKE_BRING_ACCESS_TOKEN_OK",
+  "refresh_token": "FAKE_BRING_REFRESH_TOKEN_OK",
+  "token_type": "Bearer",
+  "expires_in": 604799
+}

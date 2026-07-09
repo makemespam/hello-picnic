@@ -1,0 +1,6 @@
+{
+  "access_token": "FAKE_BRING_ACCESS_TOKEN_REFRESHED",
+  "refresh_token": "FAKE_BRING_REFRESH_TOKEN_REFRESHED",
+  "token_type": "Bearer",
+  "expires_in": 604799
+}

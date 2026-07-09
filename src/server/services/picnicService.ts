@@ -16,7 +16,7 @@ import {
 } from '@/server/integrations/picnic/auth';
 import { PicnicAuthExpired, PicnicUnknown } from '@/server/integrations/picnic/errors';
 import type { PicnicPromotion } from '@/shared/dto';
-import { getDecryptedSecret, getPublicSettings, putSecret, putSettings } from './settingsService';
+import { getDecryptedSecret, getPublicSettings, getShoppingProvider, putSecret, putSettings } from './settingsService';
 
 export interface PicnicConnectInput {
   email?: string;
@@ -117,11 +117,18 @@ export function __resetPromotionsCacheForTests(): void {
  * planService.test.ts's "graceful degradation" case).
  */
 export async function getWeekPromotions(now: number = Date.now()): Promise<PicnicPromotion[]> {
-  if (promotionsCache && now - promotionsCache.fetchedAt < PROMOTIONS_CACHE_TTL_MS) {
-    return promotionsCache.promotions;
-  }
-
+  // WP-11 (docs/workpackages/WP-11-bring-v2.md §2, closing WP-09's flagged deviation):
+  // Picnic promotions only feed the planner when the household actually shops at
+  // Picnic. Checked before the cache so a provider switch takes effect immediately
+  // (not after cache expiry); inside the try so the "never throws" contract holds even
+  // if the settings read itself fails.
   try {
+    if ((await getShoppingProvider()) !== 'picnic') return [];
+
+    if (promotionsCache && now - promotionsCache.fetchedAt < PROMOTIONS_CACHE_TTL_MS) {
+      return promotionsCache.promotions;
+    }
+
     const status = await getConnectionStatus();
     if (!status.connected) return [];
 

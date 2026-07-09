@@ -4,6 +4,7 @@
 
 import { z } from 'zod';
 import { INGREDIENT_CATEGORIES, type IngredientCategory } from './labels';
+import type { ShoppingProvider } from './settings';
 
 // --- Picnic article as carried through the resolve pipeline -----------------------
 
@@ -71,9 +72,13 @@ export interface ShoppingItemDto {
 export interface ShoppingListDto {
   planId: number;
   items: ShoppingItemDto[];
-  /** Sum of `priceCents` over enabled, resolved, non-pantry items. */
+  /** Active household shopping provider (docs/workpackages/WP-11-bring-v2.md §3) — with
+   * 'bring' the UI hides prices/candidates/promos and the send posts plain
+   * name+quantity strings instead of resolved Picnic articles. */
+  provider: ShoppingProvider;
+  /** Sum of `priceCents` over enabled, resolved, non-pantry items (always 0 for bring — no prices there). */
   totalPriceCents: number;
-  /** Count of enabled, resolved, non-pantry items — the footer's "N items". */
+  /** Count of enabled, resolved, non-pantry items (for bring: enabled, non-pantry — no resolve step) — the footer's "N items". */
   itemCount: number;
 }
 

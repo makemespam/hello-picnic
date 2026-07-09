@@ -10,6 +10,11 @@ import { z } from 'zod';
 import { AI_PURPOSES, MEAL_STYLES, RECIPE_TYPES, type AiPurpose, type MealStyle } from './labels';
 import { DEFAULT_PANTRY_KEYS } from './pantry';
 
+// --- Shopping provider (docs/workpackages/WP-11-bring-v2.md §2) ---------------
+
+export const SHOPPING_PROVIDERS = ['picnic', 'bring'] as const;
+export type ShoppingProvider = (typeof SHOPPING_PROVIDERS)[number];
+
 // --- Household preferences -------------------------------------------------
 
 export const householdPrefsSchema = z.object({
@@ -35,6 +40,10 @@ export const householdPrefsSchema = z.object({
   // € 3,50. dinnerTime backs the Vandaag "start om HH:MM" back-calculation (WP-06 §6).
   targetCostPerServingCents: z.number().int().min(0).max(5000).default(350),
   dinnerTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Ongeldige tijdnotatie (HH:MM)').default('18:00'),
+  // WP-11 (docs/workpackages/WP-11-bring-v2.md §2): which provider the whole shopping
+  // flow targets. `.default('picnic')` so a household's existing stored prefs — saved
+  // before this WP — still parse (same rationale as proteinSplitMeatServings above).
+  shoppingProvider: z.enum(SHOPPING_PROVIDERS).default('picnic'),
 });
 
 export type HouseholdPrefs = z.infer<typeof householdPrefsSchema>;
@@ -52,6 +61,7 @@ export const DEFAULT_HOUSEHOLD_PREFS: HouseholdPrefs = {
   proteinSplitVegaServings: 1,
   targetCostPerServingCents: 350,
   dinnerTime: '18:00',
+  shoppingProvider: 'picnic',
 };
 
 // PATCH-style: every field optional, merged onto the stored (or default) prefs by

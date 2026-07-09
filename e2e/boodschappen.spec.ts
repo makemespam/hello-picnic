@@ -22,6 +22,7 @@ import { getDb } from '../src/server/db/client';
 import { integrationTokens, planMeals, plans } from '../src/server/db/schema';
 import { finalize } from '../src/server/services/planService';
 import { createRecipe, findRecipeBySourceRef } from '../src/server/services/recipeService';
+import { putHouseholdPrefs } from '../src/server/services/settingsService';
 import type { RecipeCreateInput } from '../src/shared/recipes';
 import { checkA11y, snap } from './helpers';
 
@@ -30,6 +31,10 @@ test.beforeEach(({}, testInfo) => {
 });
 
 async function connectPicnic() {
+  // WP-11: this spec asserts the Picnic price UI — reset the provider in case a failed
+  // earlier bring.spec run left the household on 'bring' (same defensive-baseline
+  // convention as the token reset below).
+  await putHouseholdPrefs({ shoppingProvider: 'picnic' });
   const db = getDb();
   await db.delete(integrationTokens).where(eq(integrationTokens.provider, 'picnic'));
   await db.insert(integrationTokens).values({
