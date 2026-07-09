@@ -1,0 +1,44 @@
+# Hello Picnic v2 — Rules for AI coding agents
+
+## Read this first
+The contract for this project lives in docs/: REBUILD_PLAN.md (what & why),
+ARCHITECTURE.md (how), DESIGN_PRINCIPLES.md (UI), TESTING.md (proof),
+PROMPTS.md (AI behavior), AGENTS.md (who does what). Docs win over code.
+If docs seem wrong: stop and report, don't improvise.
+
+## Model roles (see docs/AGENTS.md)
+- ARCHITECT = expensive tier (Claude Fable / Opus-class): owns docs, reviews all PRs,
+  decides schema/security/API changes, writes crypto + AI-layer core.
+- BUILDER = cheaper tier (Claude Sonnet-class autonomous; DeepSeek via owner-pasted
+  prompts): implements exactly one work package per branch/PR.
+- Builders NEVER: change DB schema outside their WP, touch src/server/auth/crypto.ts,
+  edit docs/ to match their code, add dependencies not named in their WP without
+  flagging it in the PR, or merge anything.
+- Builder stuck twice on the same problem → escalate to architect, don't thrash.
+
+## Scope discipline
+- One work package (docs/workpackages/WP-XX-*.md) per branch `wp-XX-<slug>` per PR.
+- Out-of-scope ideas go in the PR description under "Voorstellen", not in the diff.
+- PR body = the WP's acceptance-criteria checklist (honestly ticked) + screenshots
+  of changed screens (both 390px and 1280px viewports).
+
+## Hard technical rules
+- TypeScript strict; no `any` without an inline justification comment.
+- Zod validation at every boundary: API input, LLM output, external API responses.
+- LLM calls ONLY via src/server/integrations/ai (callStructured/callImage). Never
+  parse model text with regex; never hardcode a model ID outside ai/models.ts.
+- Pages → route handlers → services → integrations. Pages never import integrations.
+- No secret (password, token, API key) may ever reach the client: not in DTOs, not
+  in HTML, not in bundles. Settings endpoints return { configured: boolean } only.
+- Secrets at rest: AES-256-GCM via src/server/auth/crypto.ts. Never plaintext files.
+- All UI copy in Dutch (jij-vorm); code identifiers in English.
+- Reuse the design system (docs/DESIGN_PRINCIPLES.md §3). Second repetition of
+  markup = extract a component. Use tokens, not ad-hoc Tailwind colors.
+- Tests per docs/TESTING.md; CI never calls live Picnic/Bring/Google/LLM APIs
+  (FAKE_AI=1 + fetch mocks). Every bugfix ships a regression test.
+- Never commit: .env, /data, real credentials, recorded fixtures containing
+  personal data (sanitize recordings).
+
+## Git
+- Conventional commits ("feat(plan): ...", "test(shopping): ...").
+- No force-push on shared branches. No drive-by refactors outside WP scope.
