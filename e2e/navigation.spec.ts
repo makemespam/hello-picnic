@@ -33,6 +33,20 @@ test('/dev/ui toont het volledige componentenoverzicht', async ({ page }, testIn
   await page.goto('/dev/ui');
   await expect(page.getByRole('heading', { level: 1, name: '/dev/ui — componentenoverzicht' })).toBeVisible();
   await expect(page.getByRole('radiogroup', { name: 'Jouw beoordeling' })).toBeVisible();
+  // Let PhotoFrame's fade-in transition settle before capturing, otherwise the
+  // screenshot (reviewed by owner/architect per docs/TESTING.md §4) catches it mid-fade.
+  await expect(page.locator('img[alt="Voorbeeldgerecht"]')).toHaveCSS('opacity', '1');
   await snap(page, testInfo, 'dev-ui');
   await checkA11y(page);
+});
+
+// regression-photoframe-instant-load: an SSR'd <img src> that loads before React
+// hydrates and attaches onLoad (data URIs, warm cache) used to leave PhotoFrame stuck
+// on its skeleton placeholder forever. Assert the demo photo actually reaches full
+// opacity instead of staying pinned at 0.
+test('regression-photoframe-instant-load: PhotoFrame toont een direct geladen foto', async ({ page }) => {
+  await page.goto('/dev/ui');
+  const photo = page.locator('img[alt="Voorbeeldgerecht"]');
+  await expect(photo).toBeVisible();
+  await expect(photo).toHaveCSS('opacity', '1');
 });

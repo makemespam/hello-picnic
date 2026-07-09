@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from './cn';
 
 export type PhotoAspect = '4:3' | '1:1' | '16:9';
@@ -27,6 +27,18 @@ export interface PhotoFrameProps {
  */
 export function PhotoFrame({ src, alt, aspect = '4:3', className }: PhotoFrameProps) {
   const [loaded, setLoaded] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  // The SSR'd <img src> starts loading before React hydrates and attaches onLoad — for
+  // instant sources (data URIs, warm browser cache) the load event fires before that
+  // listener exists, so `loaded` would otherwise get stuck false forever. Catch that
+  // case explicitly once mounted.
+  useEffect(() => {
+    setLoaded(false);
+    if (imgRef.current?.complete) {
+      setLoaded(true);
+    }
+  }, [src]);
 
   return (
     <div className={cn('relative overflow-hidden bg-primary-soft', ASPECT_CLASS[aspect], className)}>
@@ -36,6 +48,7 @@ export function PhotoFrame({ src, alt, aspect = '4:3', className }: PhotoFramePr
               route handler, later external URLs) aren't known/configurable as next/image
               remotePatterns yet; revisit once WP-04/WP-07 land the image pipeline. */}
           <img
+            ref={imgRef}
             src={src}
             alt={alt}
             loading="lazy"
