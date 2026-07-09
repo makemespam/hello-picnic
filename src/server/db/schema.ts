@@ -57,6 +57,9 @@ export const productPreferenceEnum = pgEnum(
 );
 export const imageKindEnum = pgEnum('image_kind', ['card', 'generated', 'derived']);
 
+// Weekplan domain (WP-06, docs/ARCHITECTURE.md §3).
+export const planStatusEnum = pgEnum('plan_status', ['draft', 'final']);
+
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
   householdId: integer('household_id').notNull().default(HOUSEHOLD_ID),
@@ -187,4 +190,37 @@ export const recipeIngredients = pgTable(
     sortOrder: integer('sort_order').notNull().default(0),
   },
   (table) => [index('recipe_ingredients_recipe_id_idx').on(table.recipeId)]
+);
+
+// Weekplan domain (WP-06, docs/ARCHITECTURE.md §3): a plan is one week's worth of
+// dinners; plan_meals are its per-slot rows. `cookDate`/`calendarEventId` stay null
+// until the Google Calendar integration (later WP) fills them in; `approved` drives
+// "Opnieuw genereren" (regenerate keeps approved slots, replaces the rest).
+export const plans = pgTable('plans', {
+  id: serial('id').primaryKey(),
+  householdId: integer('household_id').notNull().default(HOUSEHOLD_ID),
+  weekStart: text('week_start').notNull(), // ISO date (YYYY-MM-DD), Europe/Amsterdam wall-clock
+  servings: integer('servings').notNull(),
+  mealCount: integer('meal_count').notNull(),
+  rationale: text('rationale').notNull().default(''),
+  status: planStatusEnum('status').notNull().default('draft'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const planMeals = pgTable(
+  'plan_meals',
+  {
+    id: serial('id').primaryKey(),
+    planId: integer('plan_id')
+      .notNull()
+      .references(() => plans.id, { onDelete: 'cascade' }),
+    recipeId: integer('recipe_id')
+      .notNull()
+      .references(() => recipes.id),
+    slotIndex: integer('slot_index').notNull(),
+    cookDate: text('cook_date'), // ISO date (YYYY-MM-DD), nullable until calendar scheduling
+    approved: boolean('approved').notNull().default(false),
+    calendarEventId: text('calendar_event_id'),
+  },
+  (table) => [index('plan_meals_plan_id_idx').on(table.planId)]
 );

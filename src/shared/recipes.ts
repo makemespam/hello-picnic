@@ -22,6 +22,19 @@ import {
   type RecipeType,
 } from './labels';
 
+// Turns a free-text ingredient display name into a stable, URL/key-safe slug — used
+// as `recipe_ingredients.name_key` (shopping-list aggregation key, WP-10). Shared
+// between the manual recipe editor (client) and planService's AI-recipe persistence
+// (server, WP-06), which is why it lives here instead of duplicated in both places.
+export function slugify(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 // --- Ingredients --------------------------------------------------------------
 
 export const ingredientInputSchema = z.object({

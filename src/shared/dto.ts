@@ -3,6 +3,7 @@
 // Secret-bearing settings are represented as `{ configured: boolean }`.
 
 import type { AiPurpose } from './labels';
+import type { RecipeListItemDto } from './recipes';
 
 export interface HealthDto {
   ok: boolean;
@@ -58,3 +59,43 @@ export type { PublicSettingsDto } from './settings';
 // Recipe DTOs + Zod schemas live in src/shared/recipes.ts (WP-04); re-exported here
 // for the same reason. Recipes never carry secrets, so no tri-state/`Configured` dance.
 export type { IngredientDto, RecipeDetailDto, RecipeListItemDto } from './recipes';
+
+// Picnic promotion shape consumed by the planner prompt (docs/PROMPTS.md §1
+// "ECONOMISCH KOKEN" / PROMOTIONS block, docs/workpackages/WP-06-planner-v2.md §2).
+// The real Picnic promotions feed lands in WP-09/WP-10; until then callers pass an
+// empty array (renders as "Geen aanbiedingen beschikbaar.") or a hand-built fixture.
+export interface PicnicPromotion {
+  id: string;
+  name: string;
+  priceCents: number;
+  promoPriceCents?: number;
+  /** Free-text multi-buy label as Picnic shows it, e.g. "2e halve prijs", "2 voor 5". */
+  promoLabel?: string;
+}
+
+// --- Weekplan DTOs (WP-06, docs/ARCHITECTURE.md §3/§4) --------------------------
+
+export type PlanStatus = 'draft' | 'final';
+
+export interface PlanMealDto {
+  id: number;
+  slotIndex: number;
+  recipe: RecipeListItemDto;
+  cookDate: string | null;
+  approved: boolean;
+}
+
+export interface PlanDto {
+  id: number;
+  weekStart: string;
+  servings: number;
+  mealCount: number;
+  rationale: string;
+  status: PlanStatus;
+  createdAt: string;
+  meals: PlanMealDto[];
+}
+
+// Plan API request Zod schemas + DTO types live in src/shared/plans.ts; re-exported
+// here for the same reason as PublicSettingsDto/RecipeDetailDto above.
+export type { ApproveMealInput, GeneratePlanInput, ReplaceMealInput } from './plans';

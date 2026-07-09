@@ -4,6 +4,9 @@ import { getPublicSettings } from '@/server/services/settingsService';
 import { AI_PURPOSES, type AiPurpose } from '@/shared/labels';
 import { InstellingenForm } from './_components/InstellingenForm';
 
+// Per-request data (settings/ledger) — never statically prerendered (same fix as /plan and /).
+export const dynamic = 'force-dynamic';
+
 // Server Component: reads the current settings via the service directly (no
 // self-fetch round trip for the initial render — docs/ARCHITECTURE.md §1 "Services
 // are unit-testable without HTTP"), and resolves the model registry server-side so

@@ -291,6 +291,52 @@ export function InstellingenForm({ initial, modelsByPurpose, defaultModelIdByPur
           onChange={() => setPrefs({ ...prefs, proteinSplit: !prefs.proteinSplit })}
         />
 
+        {prefs.proteinSplit && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Aantal porties vlees/vis" htmlFor="proteinSplitMeatServings">
+              <Input
+                id="proteinSplitMeatServings"
+                type="number"
+                min={1}
+                max={8}
+                value={prefs.proteinSplitMeatServings}
+                onChange={(event) => setPrefs({ ...prefs, proteinSplitMeatServings: Number(event.target.value) })}
+              />
+            </Field>
+            <Field label="Aantal porties vega" htmlFor="proteinSplitVegaServings">
+              <Input
+                id="proteinSplitVegaServings"
+                type="number"
+                min={1}
+                max={8}
+                value={prefs.proteinSplitVegaServings}
+                onChange={(event) => setPrefs({ ...prefs, proteinSplitVegaServings: Number(event.target.value) })}
+              />
+            </Field>
+          </div>
+        )}
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Richtprijs per portie (€)" htmlFor="targetCostPerServingCents" hint="Standaard € 3,50.">
+            <Input
+              id="targetCostPerServingCents"
+              type="number"
+              min={0}
+              step={0.1}
+              value={(prefs.targetCostPerServingCents / 100).toFixed(2)}
+              onChange={(event) => setPrefs({ ...prefs, targetCostPerServingCents: Math.round(Number(event.target.value) * 100) })}
+            />
+          </Field>
+          <Field label="Etenstijd" htmlFor="dinnerTime" hint="Voor 'start met koken om' op Vandaag.">
+            <Input
+              id="dinnerTime"
+              type="time"
+              value={prefs.dinnerTime}
+              onChange={(event) => setPrefs({ ...prefs, dinnerTime: event.target.value })}
+            />
+          </Field>
+        </div>
+
         <fieldset>
           <legend className="mb-1.5 text-sm font-medium text-ink">Vaste voorraad (kast)</legend>
           <p className="mb-2 text-xs text-ink-muted">Deze producten tellen niet mee als boodschap.</p>

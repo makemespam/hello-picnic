@@ -4,17 +4,15 @@
 // written through the StorageAdapter, 9 source='ai' without photos).
 // WP-05 adds: a handful of llm_calls ledger rows so /meer/kosten has something to
 // show in dev/e2e without a real AI call ever having been made.
-//
-// DEVIATION (flagged per .cursorrules): the WP-04 scope summary line also mentions
-// "1 draft plan", but `plans`/`plan_meals` are WP-06's tables (docs/ARCHITECTURE.md §2,
-// schema.ts header) — builders may not create tables outside their own WP, so no plan
-// is seeded here. WP-06 should extend this script when it adds the plans schema.
+// WP-06 adds: 1 draft weekplan built directly from the seeded recipes (no AI call —
+// deterministic and instant, unlike going through planService.generate()).
 import 'dotenv/config';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import sharp from 'sharp';
 import { getDb } from '../src/server/db/client';
-import { llmCalls, users } from '../src/server/db/schema';
+import { HOUSEHOLD_ID, llmCalls, planMeals, plans, users } from '../src/server/db/schema';
+import { amsterdamDateKey } from '../src/server/integrations/ai/prompts/plan';
 import { createRecipe, findRecipeBySourceRef } from '../src/server/services/recipeService';
 import { computeCostCents } from '../src/server/services/costService';
 import type { RecipeCreateInput } from '../src/shared/recipes';
@@ -396,6 +394,46 @@ async function seedLlmCalls() {
   console.log(`[seed-dev] ${SEED_LLM_CALLS.length} llm_calls-rijen gezet (kostenvoorbeeld voor /meer/kosten).`);
 }
 
+/**
+ * Idempotent: skips if any plan already exists. Built directly from the seeded
+ * recipes' rows (no planService.generate() / AI call) — deterministic and instant.
+ */
+async function seedPlan() {
+  const db = getDb();
+  const [existingPlan] = await db.select({ id: plans.id }).from(plans).limit(1);
+  if (existingPlan) {
+    console.log('[seed-dev] Weekplan bestaat al — niets toegevoegd.');
+    return;
+  }
+
+  const rows = await Promise.all(
+    ['seed-recipe-1', 'seed-recipe-2', 'seed-recipe-4', 'seed-recipe-5'].map((ref) => findRecipeBySourceRef(ref))
+  );
+  const recipeIds = rows.filter((row): row is NonNullable<typeof row> => row !== undefined).map((row) => row.id);
+  if (recipeIds.length === 0) {
+    console.log('[seed-dev] Geen recepten gevonden om een weekplan mee te seeden — sla over.');
+    return;
+  }
+
+  const [planRow] = await db
+    .insert(plans)
+    .values({
+      householdId: HOUSEHOLD_ID,
+      weekStart: amsterdamDateKey(new Date()),
+      servings: 4,
+      mealCount: recipeIds.length,
+      rationale:
+        'Dit weekmenu combineert bewezen bibliotheekrecepten met de zalm en broccoli die nu goed in het seizoen zijn. De verse basilicum en kruiden worden over meerdere gerechten verdeeld zodat de bos wordt opgemaakt.',
+      status: 'draft',
+    })
+    .returning();
+  if (!planRow) throw new Error('insert into plans returned no row');
+
+  await db.insert(planMeals).values(recipeIds.map((recipeId, index) => ({ planId: planRow.id, recipeId, slotIndex: index, approved: false })));
+
+  console.log(`[seed-dev] Weekplan aangemaakt (concept, ${recipeIds.length} maaltijden).`);
+}
+
 async function main() {
   if (process.env.NODE_ENV === 'production') {
     console.log('[seed-dev] NODE_ENV=production — refusing to seed known dev data, skipping.');
@@ -405,6 +443,7 @@ async function main() {
   await seedUser();
   await seedRecipes();
   await seedLlmCalls();
+  await seedPlan();
 }
 
 main()

@@ -2,15 +2,28 @@
   "meals": [
     {
       "recipe": {
-        "title": "Kruidige linzensoep",
+        "title": "Kruidige linzensoep met gember",
+        "description": "Stevige soep met rode linzen, kokosmelk en gember.",
         "type": "vegetarisch",
-        "servings": 4,
+        "styles": ["makkelijk", "budget"],
         "timeMin": 25,
         "difficulty": "makkelijk",
-        "steps": ["Fruit ui en knoflook glazig.", "Voeg linzen, bouillon en kruiden toe.", "Laat 20 minuten sudderen."],
-        "ingredients": []
+        "servings": 4,
+        "steps": [
+          "Fruit de ui glazig met de resterende verse gember.",
+          "Voeg de rode linzen, bouillon en kokosmelk toe.",
+          "Laat 20 minuten sudderen tot de linzen zacht zijn.",
+          "Breng op smaak met zout, peper en citroensap."
+        ],
+        "ingredients": [
+          { "display": "Rode linzen", "amount": 200, "unit": "g", "category": "peulvruchten", "productPreference": "dried", "pantry": false },
+          { "display": "Ui", "amount": 1, "unit": "stuks", "category": "groenten", "productPreference": "fresh", "pantry": false },
+          { "display": "Verse gember", "amount": 15, "unit": "g", "category": "kruiden", "productPreference": "fresh", "pantry": false },
+          { "display": "Kokosmelk", "amount": 200, "unit": "ml", "category": "overig", "productPreference": "canned", "pantry": false },
+          { "display": "Groentebouillon", "amount": 500, "unit": "ml", "category": "overig", "productPreference": "any", "pantry": true }
+        ]
       }
     }
   ],
-  "rationale": "FAKE_AI placeholder fixture (docs/workpackages/WP-05 §5) — het echte planSchema landt in WP-06 (docs/PROMPTS.md §2); dit bestand bewijst alleen de FAKE_AI-doorgeefroute."
+  "rationale": "Deze linzensoep hergebruikt de resterende verse gember en de tweede helft van het blik kokosmelk uit de andere gerechten van de week, zodat er niets wordt weggegooid. Zelfde type-categorie (vegetarisch) als het origineel."
 }

@@ -7,7 +7,7 @@ import path from 'path';
 import sharp from 'sharp';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { getDb } from '@/server/db/client';
-import { images, recipeIngredients, recipes } from '@/server/db/schema';
+import { images, planMeals, plans, recipeIngredients, recipes } from '@/server/db/schema';
 import { resetStorageAdapterForTests } from '@/server/storage';
 import { deriveImageKey } from '@/server/storage/imageKeys';
 import {
@@ -32,6 +32,8 @@ async function makeTestPng(width = 100, height = 80): Promise<Buffer> {
 
 beforeAll(async () => {
   const db = getDb();
+  await db.delete(planMeals);
+  await db.delete(plans);
   await db.delete(recipeIngredients);
   await db.delete(images);
   await db.delete(recipes);

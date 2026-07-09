@@ -130,6 +130,8 @@ Alternative (owner may buy a mini-PC): identical compose stack runs on any Linux
 
 | WP-05 | ✅ done | 2026-07-11 | Sonnet builder + architect (152 unit + 59 e2e green). Vercel AI SDK layer for all 4 providers, callStructured (purpose routing, Zod retry loop, timeout/backoff, ledger on every call incl. failures), AiError taxonomy, Anthropic prompt caching, FAKE_AI fixtures, /api/ai/test + settings buttons, /meer/kosten dashboard. Architect completed registry with live-verified gpt-5.5 ($5/$30), gpt-5.4-mini ($0.75/$4.50), gemini-3.5-flash ($1.50/$9). Accepted deviations: /api/ai/test not ledgered (diagnostic); timeout tests via env-shortened real timers (fake timers raced Postgres I/O); image models deferred to WP-07 taste test (callImage throws AiConfigError until then). |
 
+| WP-06 | ✅ done | 2026-07-11 | Sonnet builder + architect (188 unit + 61 e2e green). plans/plan_meals schema, planSchema/replaceSchema, prompt builders per PROMPTS §1-2 (22 snapshot tests: season, promotions, recently-planned, proteinSplit), planService (library-first, 0-AI path, context-aware replace, finalize bumps recency), /plan UI + Vandaag v1. Builder found+fixed static-prerender bug on /plan and /; architect applied same fix to /meer/instellingen + /meer/kosten. Accepted deviations: regenerate via POST /api/plans {planId}; ISO-text date columns; proteinSplit persisted under nutrition_json pending a dedicated column; Vandaag suggestions land in WP-13. |
+
 ## 10. Risks
 
 | Risk | Mitigation |

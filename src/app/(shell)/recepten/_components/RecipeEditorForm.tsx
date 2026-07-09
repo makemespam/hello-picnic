@@ -29,16 +29,7 @@ import {
   type ProductPreference,
   type RecipeType,
 } from '@/shared/labels';
-import type { IngredientInput, RecipeDetailDto } from '@/shared/recipes';
-
-function slugify(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
+import { slugify, type IngredientInput, type RecipeDetailDto } from '@/shared/recipes';
 
 interface DraftIngredient extends Omit<IngredientInput, 'nameKey'> {
   key: string; // client-only React key, stable across reorders

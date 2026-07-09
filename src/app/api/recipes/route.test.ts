@@ -6,7 +6,7 @@ import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getDb } from '@/server/db/client';
-import { images, recipeIngredients, recipes } from '@/server/db/schema';
+import { images, planMeals, plans, recipeIngredients, recipes } from '@/server/db/schema';
 import { resetStorageAdapterForTests } from '@/server/storage';
 import { GET, POST } from './route';
 
@@ -20,6 +20,8 @@ beforeEach(async () => {
   resetStorageAdapterForTests();
 
   const db = getDb();
+  await db.delete(planMeals);
+  await db.delete(plans);
   await db.delete(recipeIngredients);
   await db.delete(images);
   await db.delete(recipes);

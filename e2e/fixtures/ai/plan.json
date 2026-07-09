@@ -1,17 +1,56 @@
 {
   "meals": [
+    { "libraryRef": 1 },
     { "libraryRef": 3 },
     {
       "recipe": {
-        "title": "Romige pastalinguine met spinazie",
-        "type": "vegetarisch",
-        "servings": 4,
+        "title": "Thaise groentecurry met kokosmelk en gember",
+        "description": "Frisse currygroenten met een vleugje gember, klaar in een half uur.",
+        "type": "vegan",
+        "styles": ["wereldkeuken", "fit"],
         "timeMin": 30,
-        "difficulty": "makkelijk",
-        "steps": ["Kook de pasta beetgaar.", "Fruit knoflook, voeg spinazie en room toe.", "Meng door de pasta met geraspte Parmezaan."],
-        "ingredients": []
+        "difficulty": "gemiddeld",
+        "servings": 4,
+        "steps": [
+          "Bak de rode currypasta kort aan in een wok met een scheutje olie.",
+          "Voeg de kokosmelk en de helft van de geraspte gember toe en breng aan de kook.",
+          "Voeg de wokgroenten toe en laat 10 minuten sudderen tot beetgaar.",
+          "Serveer met jasmijnrijst en een snufje verse koriander."
+        ],
+        "ingredients": [
+          { "display": "Rode currypasta", "amount": 2, "unit": "el", "category": "kruiden", "productPreference": "any", "pantry": true },
+          { "display": "Kokosmelk", "amount": 200, "unit": "ml", "category": "overig", "productPreference": "canned", "pantry": false },
+          { "display": "Verse gember", "amount": 20, "unit": "g", "category": "kruiden", "productPreference": "fresh", "pantry": false },
+          { "display": "Wokgroentemix", "amount": 400, "unit": "g", "category": "groenten", "productPreference": "fresh", "pantry": false },
+          { "display": "Jasmijnrijst", "amount": 300, "unit": "g", "category": "granen", "productPreference": "dried", "pantry": true }
+        ]
+      }
+    },
+    {
+      "recipe": {
+        "title": "Thaise kokos-gembersoep met kip",
+        "description": "Verwarmende soep met kip, kokosmelk, gember en rijstnoedels.",
+        "type": "kip",
+        "styles": ["wereldkeuken", "comfort"],
+        "timeMin": 35,
+        "difficulty": "gemiddeld",
+        "servings": 4,
+        "steps": [
+          "Snijd de kipfilet in blokjes en bak aan met de rest van de gember en de vissaus.",
+          "Voeg de kokosmelk en bouillon toe en breng aan de kook.",
+          "Voeg de rijstnoedels toe en laat garen tot ze zacht zijn.",
+          "Breng op smaak met limoensap en serveer direct."
+        ],
+        "ingredients": [
+          { "display": "Kipfilet", "amount": 500, "unit": "g", "category": "vis", "productPreference": "fresh", "pantry": false },
+          { "display": "Kokosmelk", "amount": 200, "unit": "ml", "category": "overig", "productPreference": "canned", "pantry": false },
+          { "display": "Verse gember", "amount": 20, "unit": "g", "category": "kruiden", "productPreference": "fresh", "pantry": false },
+          { "display": "Rijstnoedels", "amount": 250, "unit": "g", "category": "granen", "productPreference": "dried", "pantry": false },
+          { "display": "Vissaus", "amount": 1, "unit": "el", "category": "kruiden", "productPreference": "any", "pantry": true },
+          { "display": "Limoen", "amount": 1, "unit": "stuks", "category": "fruit", "productPreference": "fresh", "pantry": false }
+        ]
       }
     }
   ],
-  "rationale": "FAKE_AI placeholder fixture (docs/workpackages/WP-05 §5) — het echte planSchema landt in WP-06 (docs/PROMPTS.md §1); dit bestand bewijst alleen de FAKE_AI-doorgeefroute."
+  "rationale": "De twee nieuwe gerechten delen één blik kokosmelk (2 × 200 ml) en de bos verse gember, zodat er niets overblijft. Met wokgroenten en kip die nu voordelig in het seizoen zijn, blijft de gemiddelde portijs ruim onder de richtprijs. De bibliotheekgerechten #1 en #3 vullen de week aan zonder iets te herhalen van de afgelopen drie weken."
 }

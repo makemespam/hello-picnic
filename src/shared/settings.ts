@@ -21,6 +21,20 @@ export const householdPrefsSchema = z.object({
   pantry: z.array(z.string()),
   useUp: z.string().max(2000),
   proteinSplit: z.boolean(),
+  // WP-06 (docs/workpackages/WP-06-planner-v2.md §3, docs/PROMPTS.md §1
+  // PROTEIN_SPLIT_BLOCK): servings count for each protein when proteinSplit is on.
+  // Defaults derived from the default `servings` (4): meat = servings-1, vega = 1.
+  // `.default()` (not just required-with-a-default-object-literal) so a household's
+  // *existing* stored prefs — saved before this WP, missing these keys — still parse
+  // successfully and keep their other customizations instead of silently reverting the
+  // entire object to DEFAULT_HOUSEHOLD_PREFS (settingsService.getHouseholdPrefs falls
+  // back wholesale on any parse failure).
+  proteinSplitMeatServings: z.number().int().min(1).max(8).default(3),
+  proteinSplitVegaServings: z.number().int().min(1).max(8).default(1),
+  // TARGET_COST_PER_SERVING (docs/PROMPTS.md §1 "ECONOMISCH KOKEN"), in cents; default
+  // € 3,50. dinnerTime backs the Vandaag "start om HH:MM" back-calculation (WP-06 §6).
+  targetCostPerServingCents: z.number().int().min(0).max(5000).default(350),
+  dinnerTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Ongeldige tijdnotatie (HH:MM)').default('18:00'),
 });
 
 export type HouseholdPrefs = z.infer<typeof householdPrefsSchema>;
@@ -34,6 +48,10 @@ export const DEFAULT_HOUSEHOLD_PREFS: HouseholdPrefs = {
   pantry: DEFAULT_PANTRY_KEYS,
   useUp: '',
   proteinSplit: false,
+  proteinSplitMeatServings: 3,
+  proteinSplitVegaServings: 1,
+  targetCostPerServingCents: 350,
+  dinnerTime: '18:00',
 };
 
 // PATCH-style: every field optional, merged onto the stored (or default) prefs by

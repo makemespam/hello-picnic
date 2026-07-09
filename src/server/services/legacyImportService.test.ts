@@ -5,7 +5,7 @@
 import path from 'path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { getDb } from '@/server/db/client';
-import { images, recipeIngredients, recipes } from '@/server/db/schema';
+import { images, planMeals, plans, recipeIngredients, recipes } from '@/server/db/schema';
 import { getRecipe, listRecipes } from './recipeService';
 import { importLegacyRecipeLibrary } from './legacyImportService';
 
@@ -13,6 +13,8 @@ const FIXTURE_PATH = path.join(__dirname, '..', '..', '..', 'e2e', 'fixtures', '
 
 beforeEach(async () => {
   const db = getDb();
+  await db.delete(planMeals);
+  await db.delete(plans);
   await db.delete(recipeIngredients);
   await db.delete(images);
   await db.delete(recipes);
