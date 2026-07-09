@@ -144,6 +144,9 @@ Alternative (owner may buy a mini-PC): identical compose stack runs on any Linux
 
 | WP-11 | ✅ done | 2026-07-11 | Sonnet builder + architect (555 unit + 72 e2e green). Typed Bring client (BRING_API_KEY strictly env + server-only, enforced by envKeyGuard test — v1 regression closed), encrypted tokens with refresh-on-401-once, shoppingProvider household setting with RadioCard toggle, simplified name+quantity send flow on /boodschappen for Bring (idempotent, per-item status), promotions gate on provider closes WP-09's flagged deviation (tested), FAKE_BRING fixture mode. |
 
+| WP-14 | ✅ done | 2026-07-11 | Sonnet builder + architect. Capacitor Android scaffold + deploy/ANDROID.md (APK build = owner task, no SDK in sandbox), docs/PARITY.md (architect-verified; Electron dropped with rationale), legacy/ deleted, README rewritten with screenshots, PWA install card, 360px sweep, optional Lighthouse CI step. Architect e2e-infra hardening: reset-e2e script + serial workers; residual mid-run state leakage documented in TESTING.md §8 (CI retries absorb; first post-deploy hardening item). |
+| WP-07 | ⏳ OPEN | — | The only remaining WP: per-dish photo generation. Blocked on the owner's taste test with real API keys (image model registry entries deliberately empty). callImage + schema groundwork ready (WP-04/05). |
+
 ## 10. Risks
 
 | Risk | Mitigation |
