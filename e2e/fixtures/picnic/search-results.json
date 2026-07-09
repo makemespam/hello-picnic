@@ -1,0 +1,36 @@
+{
+  "items": [
+    {
+      "type": "SEARCH_RESULTS_GRID",
+      "items": [
+        {
+          "type": "SINGLE_ARTICLE",
+          "id": "s1001",
+          "name": "Waspeen 750g",
+          "price": 129,
+          "display_price": 129,
+          "unit_quantity": "750g",
+          "image_ids": ["img_waspeen_1"]
+        },
+        {
+          "type": "SINGLE_ARTICLE",
+          "id": "s1002",
+          "name": "Waspeen Bio 500g",
+          "price": 179,
+          "display_price": 179,
+          "unit_quantity": "500g",
+          "image_ids": ["img_waspeen_2"]
+        },
+        {
+          "type": "SINGLE_ARTICLE",
+          "id": "s1003",
+          "name": "Winterwortelsoep 500ml",
+          "price": 219,
+          "display_price": 219,
+          "unit_quantity": "500ml",
+          "image_ids": ["img_soep_1"]
+        }
+      ]
+    }
+  ]
+}

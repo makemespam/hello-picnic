@@ -1,0 +1,6 @@
+{
+  "id": "cart_e2e_test",
+  "items": [{ "id": "s1001", "name": "Waspeen 750g", "quantity": 1, "price": 129 }],
+  "total_count": 1,
+  "total_price": 129
+}

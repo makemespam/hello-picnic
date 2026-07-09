@@ -132,6 +132,8 @@ Alternative (owner may buy a mini-PC): identical compose stack runs on any Linux
 
 | WP-06 | ✅ done | 2026-07-11 | Sonnet builder + architect (188 unit + 61 e2e green). plans/plan_meals schema, planSchema/replaceSchema, prompt builders per PROMPTS §1-2 (22 snapshot tests: season, promotions, recently-planned, proteinSplit), planService (library-first, 0-AI path, context-aware replace, finalize bumps recency), /plan UI + Vandaag v1. Builder found+fixed static-prerender bug on /plan and /; architect applied same fix to /meer/instellingen + /meer/kosten. Accepted deviations: regenerate via POST /api/plans {planId}; ISO-text date columns; proteinSplit persisted under nutrition_json pending a dedicated column; Vandaag suggestions land in WP-13. |
 
+| WP-09 | ✅ done | 2026-07-11 | Sonnet builder + architect (313 unit + 64 e2e green, 3 mobile picnic specs skipped by design — shared-token race documented). Typed Picnic client (env-versioned base, MD5+device headers, token bucket 2 req/s), 2FA connect flow, tokens AES-encrypted in integration_tokens, error taxonomy + Dutch error mapping + re-login banner, promotions parser with discount/multi-buy metadata wired into planService with proven graceful degradation, FAKE_PICNIC e2e mode, legacy heuristics ported with branch-level tests. Accepted deviations: picnicService added to service list; shoppingProvider gate lands with WP-11; coverage tool not added. Builder fixed real TokenBucket clock-capture bug. Owner manual round with real Picnic account still pending (deploy-time). |
+
 ## 10. Risks
 
 | Risk | Mitigation |

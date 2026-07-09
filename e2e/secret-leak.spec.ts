@@ -13,7 +13,7 @@ const SENTINELS = {
   anthropicApiKey: 'SK_ANT_SENTINEL_93x',
 } as const;
 
-// Every API route that exists as of WP-06 (docs/ARCHITECTURE.md §4). Extend this
+// Every API route that exists as of WP-09 (docs/ARCHITECTURE.md §4). Extend this
 // list as later WPs add routes — that's the whole point of this test.
 const API_ROUTES = [
   '/api/settings',
@@ -22,6 +22,7 @@ const API_ROUTES = [
   '/api/recipes',
   '/api/costs',
   '/api/plans/latest',
+  '/api/picnic/status',
 ];
 
 // Every shell page (src/shared/labels.ts NAV_ITEMS) plus the settings and kosten screens.

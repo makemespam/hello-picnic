@@ -1,0 +1,8 @@
+{
+  "authToken": "FAKE_PICNIC_AUTH_TOKEN_PENDING",
+  "body": {
+    "user_id": "u_e2e_test_2fa",
+    "second_factor_authentication_required": true,
+    "show_second_factor_authentication_intro": true
+  }
+}

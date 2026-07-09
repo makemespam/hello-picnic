@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/PageHeader';
 import { DEFAULT_MODEL_BY_PURPOSE, getModelsForPurpose, type AiModel } from '@/server/integrations/ai/models';
+import { getConnectionStatus } from '@/server/services/picnicService';
 import { getPublicSettings } from '@/server/services/settingsService';
 import { AI_PURPOSES, type AiPurpose } from '@/shared/labels';
 import { InstellingenForm } from './_components/InstellingenForm';
@@ -12,9 +13,12 @@ export const dynamic = 'force-dynamic';
 // are unit-testable without HTTP"), and resolves the model registry server-side so
 // the client component only ever receives plain serialized data, never an import
 // from src/server/* (keeps the client/server module boundary explicit). The form's
-// Save action still goes through the real PUT /api/settings route handler.
+// Save action still goes through the real PUT /api/settings route handler. Picnic's
+// connection status (docs/workpackages/WP-09-picnic-client-v2.md §3) is resolved the
+// same way — its live "is the stored token still good?" probe belongs on first paint,
+// not behind an extra client round trip.
 export default async function InstellingenPage() {
-  const settings = await getPublicSettings();
+  const [settings, picnicStatus] = await Promise.all([getPublicSettings(), getConnectionStatus()]);
   const modelsByPurpose = Object.fromEntries(
     AI_PURPOSES.map((purpose) => [purpose, getModelsForPurpose(purpose)])
   ) as Record<AiPurpose, AiModel[]>;
@@ -29,6 +33,7 @@ export default async function InstellingenPage() {
         initial={settings}
         modelsByPurpose={modelsByPurpose}
         defaultModelIdByPurpose={DEFAULT_MODEL_BY_PURPOSE}
+        initialPicnicStatus={picnicStatus}
       />
     </div>
   );

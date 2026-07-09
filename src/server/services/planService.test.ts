@@ -8,8 +8,10 @@
 // - times_planned/last_planned_at updated on finalize
 import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { encryptSecret } from '@/server/auth/crypto';
 import { getDb } from '@/server/db/client';
-import { llmCalls, planMeals, plans, recipeIngredients, recipes } from '@/server/db/schema';
+import { integrationTokens, llmCalls, planMeals, plans, recipeIngredients, recipes } from '@/server/db/schema';
+import { FAKE_EXPIRED_TOKEN } from '@/server/integrations/picnic/fakePicnic';
 import { createRecipe, getRecipe, updateRecipe } from './recipeService';
 import {
   approveMeal,
@@ -29,6 +31,7 @@ beforeEach(async () => {
   await db.delete(recipeIngredients);
   await db.delete(recipes);
   await db.delete(llmCalls);
+  await db.delete(integrationTokens).where(eq(integrationTokens.provider, 'picnic'));
 });
 
 function minimalRecipe(title: string, source: RecipeCreateInput['source'] = 'manual'): RecipeCreateInput {
@@ -94,6 +97,33 @@ describe('planService.generate', () => {
   it('rejects more library picks than the requested meal count', async () => {
     const idA = await seedLibraryRecipe('Bibliotheekgerecht', 5);
     await expect(generate({ mealCount: 1, servings: 4, libraryRecipeIds: [idA, idA] })).rejects.toBeInstanceOf(PlanServiceError);
+  });
+
+  // docs/workpackages/WP-09-picnic-client-v2.md §5: "plan generation must NEVER fail
+  // because Picnic is down." A stored 'connected' token whose live status probe (GET
+  // /cart) comes back expired (FAKE_EXPIRED_TOKEN, docs/workpackages/WP-09 §6) makes
+  // picnicService.getWeekPromotions() degrade to an empty list instead of throwing —
+  // generate() must still succeed with the AI's promotions block simply saying "Geen
+  // aanbiedingen beschikbaar." (src/server/integrations/ai/prompts/plan.ts formatPromotions).
+  it('generates successfully with an empty promotions list when the Picnic connection is stale (graceful degradation)', async () => {
+    // Same library setup as the first test in this block (plan.json's libraryRef 1/3
+    // need real candidates to resolve against) — the only thing under test here is
+    // that a stale Picnic connection doesn't make generate() throw.
+    await seedLibraryRecipe('Bibliotheekgerecht A (hoogst gewaardeerd)', 5);
+    await seedLibraryRecipe('Bibliotheekgerecht B', 4);
+    await seedLibraryRecipe('Bibliotheekgerecht C', 3);
+
+    const db = getDb();
+    await db.insert(integrationTokens).values({
+      provider: 'picnic',
+      payloadEncrypted: encryptSecret(
+        JSON.stringify({ status: 'connected', authToken: FAKE_EXPIRED_TOKEN, email: 'gezin@example.com' })
+      ),
+      expiresAt: null,
+    });
+
+    const plan = await generate({ mealCount: 4, servings: 4, libraryRecipeIds: [] });
+    expect(plan.meals).toHaveLength(4);
   });
 });
 

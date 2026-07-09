@@ -71,6 +71,10 @@ export interface PicnicPromotion {
   promoPriceCents?: number;
   /** Free-text multi-buy label as Picnic shows it, e.g. "2e halve prijs", "2 voor 5". */
   promoLabel?: string;
+  /** Discount shape (docs/workpackages/WP-09-picnic-client-v2.md §4), derived from `promoLabel`
+   * by src/server/integrations/picnic/promotions.ts' `classifyMechanism` — 'multi_buy' for
+   * "2 voor 1"/"2e halve prijs"-style labels, 'discount' for a plain price cut. */
+  mechanism?: 'multi_buy' | 'discount';
 }
 
 // --- Weekplan DTOs (WP-06, docs/ARCHITECTURE.md §3/§4) --------------------------

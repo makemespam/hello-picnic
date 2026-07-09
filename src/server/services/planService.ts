@@ -29,6 +29,7 @@ import type { GeneratePlanInput, PicnicPromotion, PlanDto, PlanMealDto } from '@
 import { DEFAULT_PANTRY } from '@/shared/pantry';
 import { recipeCreateSchema, slugify, type RecipeCreateInput } from '@/shared/recipes';
 import type { HouseholdPrefs } from '@/shared/settings';
+import { getWeekPromotions } from './picnicService';
 import { createRecipe, getRecipe, recordRecipePlanned, updateRecipe } from './recipeService';
 import { getHouseholdPrefs } from './settingsService';
 
@@ -335,7 +336,10 @@ export async function generate(options: GeneratePlanOptions): Promise<PlanDto> {
   }
 
   const now = options.now ?? new Date();
-  const promotions = options.promotions ?? [];
+  // docs/workpackages/WP-09-picnic-client-v2.md §5: real Picnic promotions feed, cached
+  // 24h and gracefully empty on any Picnic failure (getWeekPromotions never throws) — an
+  // explicit `options.promotions` (tests, WP-10 callers) always wins.
+  const promotions = options.promotions ?? (await getWeekPromotions());
   const db = getDb();
 
   const [planRow] = await db
@@ -397,7 +401,7 @@ export async function regenerate(planId: number, options: RegenerateOptions = {}
   if (plan.status !== 'draft') throw new PlanServiceError('Alleen een concept-weekmenu kan opnieuw gegenereerd worden.');
 
   const now = options.now ?? new Date();
-  const promotions = options.promotions ?? [];
+  const promotions = options.promotions ?? (await getWeekPromotions());
   const mealRows = await fetchMealRows(planId);
   const approvedRows = mealRows.filter((row) => row.approved);
   const unapprovedRows = mealRows.filter((row) => !row.approved);
@@ -480,7 +484,7 @@ export async function replaceMeal(planId: number, mealId: number, options: Repla
     usedRecipeIds: mealRows.map((row) => row.recipeId),
     servings: plan.servings,
     now: options.now ?? new Date(),
-    promotions: options.promotions ?? [],
+    promotions: options.promotions ?? (await getWeekPromotions()),
     preferences: options.wishes,
     extraSystem: { oldTitle: oldRecipe.title, otherMeals, avoidTitles: otherMeals.map((meal) => meal.title) },
   });

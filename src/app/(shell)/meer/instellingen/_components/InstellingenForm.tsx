@@ -11,6 +11,7 @@ import { Textarea } from '@/components/Textarea';
 import { AI_PURPOSES, MEAL_STYLE_LABEL, MEAL_STYLES, PURPOSE_LABEL, RECIPE_TYPES, TYPE_LABEL, type AiPurpose } from '@/shared/labels';
 import { DEFAULT_PANTRY, DEFAULT_PANTRY_KEYS } from '@/shared/pantry';
 import { SECRET_KEYS, type AiModelOverrides, type HouseholdPrefs, type PublicSettingsDto, type SecretKey, type SettingsPutInput } from '@/shared/settings';
+import { PicnicConnectCard, type PicnicConnectCardProps } from './PicnicConnectCard';
 
 // Plain, JSON-serializable shape of src/server/integrations/ai/models.ts' AiModel —
 // re-declared locally (rather than importing the server module) so this client
@@ -26,6 +27,7 @@ export interface InstellingenFormProps {
   initial: PublicSettingsDto;
   modelsByPurpose: Record<AiPurpose, ModelOption[]>;
   defaultModelIdByPurpose: Partial<Record<AiPurpose, string>>;
+  initialPicnicStatus: PicnicConnectCardProps['initialStatus'];
 }
 
 type SecretDraft = Record<SecretKey, string | null>;
@@ -167,10 +169,9 @@ function SecretField({
   );
 }
 
-export function InstellingenForm({ initial, modelsByPurpose, defaultModelIdByPurpose }: InstellingenFormProps) {
+export function InstellingenForm({ initial, modelsByPurpose, defaultModelIdByPurpose, initialPicnicStatus }: InstellingenFormProps) {
   const [prefs, setPrefs] = useState<HouseholdPrefs>(initial.householdPrefs);
   const [overrides, setOverrides] = useState<AiModelOverrides>(initial.aiModelOverrides);
-  const [picnicEmail, setPicnicEmail] = useState(initial.picnicEmail);
   const [bringEmail, setBringEmail] = useState(initial.bringEmail);
   const [secrets, setSecrets] = useState<SecretDraft>(emptySecretDraft());
   const [configured, setConfigured] = useState(() => configuredFlagsFrom(initial));
@@ -187,7 +188,6 @@ export function InstellingenForm({ initial, modelsByPurpose, defaultModelIdByPur
     const payload: SettingsPutInput = {
       householdPrefs: prefs,
       aiModelOverrides: overrides,
-      picnicEmail,
       bringEmail,
       ...secrets,
     };
@@ -203,7 +203,6 @@ export function InstellingenForm({ initial, modelsByPurpose, defaultModelIdByPur
 
       setPrefs(data.householdPrefs);
       setOverrides(data.aiModelOverrides);
-      setPicnicEmail(data.picnicEmail);
       setBringEmail(data.bringEmail);
       setSecrets(emptySecretDraft());
       setConfigured(configuredFlagsFrom(data));
@@ -382,18 +381,7 @@ export function InstellingenForm({ initial, modelsByPurpose, defaultModelIdByPur
       </Card>
 
       <Card title="Picnic" description="Voor het vullen van de winkelmand.">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="E-mailadres" htmlFor="picnicEmail">
-            <Input id="picnicEmail" type="email" value={picnicEmail} onChange={(event) => setPicnicEmail(event.target.value)} />
-          </Field>
-          <SecretField
-            id="picnicPassword"
-            label="Wachtwoord"
-            value={secrets.picnicPassword}
-            configured={configured.picnicPassword}
-            onChange={(value) => setSecret('picnicPassword', value)}
-          />
-        </div>
+        <PicnicConnectCard initialEmail={initial.picnicEmail} initialStatus={initialPicnicStatus} />
       </Card>
 
       <Card title="Bring" description="Alternatief voor de boodschappenlijst.">

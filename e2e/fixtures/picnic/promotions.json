@@ -1,0 +1,55 @@
+{
+  "items": [
+    {
+      "type": "PROMOTION_GROUP",
+      "name": "Deze week in de aanbieding",
+      "items": [
+        {
+          "type": "SINGLE_ARTICLE",
+          "id": "p2001",
+          "name": "AH Basic Kipfilet 400g",
+          "price": 549,
+          "display_price": 399,
+          "unit_quantity": "400g",
+          "image_ids": ["img_kip_1"],
+          "decorators": [
+            { "type": "PRICE", "original_price": 549, "display_price": 399 },
+            { "type": "PROMO_LABEL", "text": "-27%" }
+          ]
+        },
+        {
+          "type": "SINGLE_ARTICLE",
+          "id": "p2002",
+          "name": "Coca-Cola Regular 6x330ml",
+          "price": 459,
+          "display_price": 459,
+          "unit_quantity": "6x330ml",
+          "image_ids": ["img_cola_1"],
+          "decorators": [{ "type": "PROMO_LABEL", "text": "2 voor 1" }]
+        },
+        {
+          "type": "SINGLE_ARTICLE",
+          "id": "p2003",
+          "name": "Roomboter Croissants 4 stuks",
+          "price": 249,
+          "display_price": 249,
+          "unit_quantity": "4 stuks",
+          "image_ids": ["img_croissant_1"],
+          "decorators": [
+            { "type": "PROMO_LABEL", "text": "2e halve prijs" },
+            { "type": "PRICE", "original_price": 249, "display_price": 249 }
+          ]
+        },
+        {
+          "type": "SINGLE_ARTICLE",
+          "id": "p2004",
+          "name": "Verse Tagliatelle 250g",
+          "price": 189,
+          "display_price": 189,
+          "unit_quantity": "250g",
+          "image_ids": ["img_pasta_1"]
+        }
+      ]
+    }
+  ]
+}
