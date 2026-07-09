@@ -1,0 +1,165 @@
+{
+  "nextNumber": 6,
+  "items": [
+    {
+      "libraryId": "meal-1",
+      "libraryNumber": 1,
+      "status": "approved",
+      "rating": 5,
+      "favorite": true,
+      "createdAt": "2025-11-02T18:04:00.000Z",
+      "updatedAt": "2025-11-03T09:12:00.000Z",
+      "recipe": {
+        "id": "meal-1",
+        "libraryId": "meal-1",
+        "libraryNumber": 1,
+        "status": "approved",
+        "title": "Romige tomatensoep",
+        "description": "Snelle troostsoep met een scheut room en verse basilicum.",
+        "type": "vegetarisch",
+        "emoji": "🍅",
+        "time": 25,
+        "difficulty": "easy",
+        "servings": 4,
+        "ingredients": [
+          { "name": "tomaat", "display": "Tomatenblokjes uit blik", "amount": 800, "unit": "g", "category": "groenten", "productPreference": "canned", "pantry": false },
+          { "name": "ui", "display": "Ui", "amount": 1, "unit": "stuks", "category": "groenten", "pantry": false },
+          { "name": "kookroom", "display": "Kookroom", "amount": 100, "unit": "ml", "category": "zuivel", "productPreference": "fresh", "pantry": false },
+          { "name": "basilicum", "display": "Verse basilicum", "amount": 1, "unit": "bos", "category": "kruiden", "pantry": false }
+        ],
+        "steps": [
+          "Fruit de ui glazig in een scheutje olie.",
+          "Voeg de tomatenblokjes toe en laat 15 minuten sudderen.",
+          "Pureer de soep glad en roer de room erdoor.",
+          "Serveer met gehakte basilicum."
+        ]
+      }
+    },
+    {
+      "libraryId": "meal-2",
+      "libraryNumber": 2,
+      "status": "pending",
+      "createdAt": "2025-11-05T18:04:00.000Z",
+      "updatedAt": "2025-11-05T18:04:00.000Z",
+      "recipe": {
+        "id": "meal-2",
+        "libraryId": "meal-2",
+        "libraryNumber": 2,
+        "status": "pending",
+        "title": "Vega curry met kokosmelk",
+        "description": "Pittige curry met linzen en spinazie.",
+        "type": "vega",
+        "emoji": "🍛",
+        "time": 35,
+        "difficulty": "medium",
+        "servings": 4,
+        "ingredients": [
+          { "name": "kokosmelk", "display": "Kokosmelk", "amount": 400, "unit": "ml", "category": "overig", "productPreference": "canned", "pantry": false },
+          { "name": "linzen", "display": "Rode linzen", "amount": 200, "unit": "g", "category": "peulvruchten", "productPreference": "dried", "pantry": false },
+          { "name": "spinazie", "display": "Verse spinazie", "amount": 150, "unit": "g", "category": "groenten", "pantry": false },
+          { "name": "kerriepoeder", "display": "Kerriepoeder", "amount": 2, "unit": "el", "category": "kruiden", "pantry": true }
+        ],
+        "steps": [
+          "Bak het kerriepoeder kort mee met een gesnipperde ui.",
+          "Voeg linzen en kokosmelk toe, laat 20 minuten sudderen.",
+          "Roer de spinazie erdoor tot deze geslonken is.",
+          "Breng op smaak met zout en peper."
+        ]
+      }
+    },
+    {
+      "libraryId": "meal-3",
+      "libraryNumber": 3,
+      "status": "approved",
+      "createdAt": "2025-11-08T18:04:00.000Z",
+      "updatedAt": "2025-11-08T18:04:00.000Z",
+      "recipe": {
+        "id": "meal-3",
+        "libraryId": "meal-3",
+        "libraryNumber": 3,
+        "status": "approved",
+        "title": "Zalm met broccoli",
+        "description": "Ovenzalm met knapperige broccoli en citroen.",
+        "type": "vis",
+        "emoji": "🐟",
+        "time": 30,
+        "difficulty": "easy",
+        "servings": 4,
+        "ingredients": [
+          { "name": "zalmfilet", "display": "Zalmfilet", "amount": 4, "unit": "stuks", "category": "vis", "productPreference": "fresh", "pantry": false },
+          { "name": "broccoli", "display": "Broccoli", "amount": 500, "unit": "g", "category": "groenten", "pantry": false },
+          { "name": "citroen", "display": "Citroen", "amount": 1, "unit": "stuks", "category": "fruit", "pantry": false }
+        ],
+        "steps": [
+          "Verwarm de oven voor op 200°C.",
+          "Verdeel de broccoli en zalm over een bakplaat, besprenkel met olie.",
+          "Bak 15-18 minuten tot de zalm gaar is.",
+          "Serveer met een partje citroen."
+        ]
+      }
+    },
+    {
+      "libraryId": "meal-4",
+      "libraryNumber": 4,
+      "status": "rejected",
+      "createdAt": "2025-11-10T18:04:00.000Z",
+      "updatedAt": "2025-11-12T08:00:00.000Z",
+      "recipe": {
+        "id": "meal-4",
+        "libraryId": "meal-4",
+        "libraryNumber": 4,
+        "status": "rejected",
+        "title": "Kipsaté met rijst",
+        "description": "Kipsaté in pindasaus, iets te zoet bevonden — niet nog een keer.",
+        "type": "kip",
+        "emoji": "🍢",
+        "time": 40,
+        "difficulty": "medium",
+        "servings": 4,
+        "ingredients": [
+          { "name": "kipfilet", "display": "Kipfilet", "amount": 600, "unit": "g", "category": "vis", "productPreference": "fresh", "pantry": false },
+          { "name": "pindakaas", "display": "Pindakaas", "amount": 150, "unit": "g", "category": "overig", "pantry": true },
+          { "name": "rijst", "display": "Rijst", "amount": 300, "unit": "g", "category": "granen", "pantry": true }
+        ],
+        "steps": [
+          "Snijd de kipfilet in blokjes en bak gaar.",
+          "Maak de satésaus met pindakaas, sojasaus en water.",
+          "Kook de rijst volgens de verpakking.",
+          "Serveer de kip met saus over de rijst."
+        ]
+      }
+    },
+    {
+      "libraryId": "meal-5",
+      "libraryNumber": 5,
+      "status": "approved",
+      "createdAt": "2025-11-14T18:04:00.000Z",
+      "updatedAt": "2025-11-14T18:04:00.000Z",
+      "recipe": {
+        "id": "meal-5",
+        "libraryId": "meal-5",
+        "libraryNumber": 5,
+        "status": "approved",
+        "title": "Runderstoof met wortel",
+        "description": "Langzaam gestoofd rundvlees met wortel en tijm.",
+        "type": "rund",
+        "emoji": "🥘",
+        "time": 150,
+        "difficulty": "hard",
+        "servings": 4,
+        "ingredients": [
+          { "name": "runderlappen", "display": "Runderlappen", "amount": 800, "unit": "g", "category": "vis", "productPreference": "fresh", "pantry": false },
+          { "name": "wortel", "display": "Wortel", "amount": 4, "unit": "stuks", "category": "groenten", "pantry": false },
+          { "name": "tijm", "display": "Verse tijm", "amount": 1, "unit": "bos", "category": "kruiden", "pantry": false },
+          { "name": "runderbouillon", "display": "Runderbouillon", "amount": 500, "unit": "ml", "category": "overig", "pantry": true }
+        ],
+        "steps": [
+          "Braad de runderlappen rondom aan.",
+          "Voeg wortel, tijm en bouillon toe.",
+          "Laat 2,5 uur zachtjes stoven tot het vlees mals is.",
+          "Breng op smaak en serveer."
+        ]
+      }
+    }
+  ]
+}

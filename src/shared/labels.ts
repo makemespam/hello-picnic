@@ -24,6 +24,53 @@ export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   uitdagend: 'Uitdagend',
 };
 
+// Runtime list of difficulties, derived from DIFFICULTY_LABEL (mirrors RECIPE_TYPES'
+// pattern below) so the `recipe_difficulty` Postgres enum (WP-04) can never drift.
+export const RECIPE_DIFFICULTIES = Object.keys(DIFFICULTY_LABEL) as Difficulty[];
+
+export type RecipeSource = 'card' | 'ai' | 'manual';
+
+export const RECIPE_SOURCE_LABEL: Record<RecipeSource, string> = {
+  card: 'HelloFresh-kaart',
+  ai: 'AI-gegenereerd',
+  manual: 'Handmatig',
+};
+
+export const RECIPE_SOURCES = Object.keys(RECIPE_SOURCE_LABEL) as RecipeSource[];
+
+export type RecipeStatus = 'draft' | 'active' | 'archived';
+
+export const RECIPE_STATUSES: RecipeStatus[] = ['draft', 'active', 'archived'];
+
+// Ingredient vocabulary ported from legacy/src/lib/types.ts (IngredientCategory,
+// ProductPreference) — WP-04 recipe_ingredients columns (docs/ARCHITECTURE.md §3).
+export type IngredientCategory = 'groenten' | 'fruit' | 'zuivel' | 'vis' | 'kruiden' | 'granen' | 'peulvruchten' | 'overig';
+
+export const INGREDIENT_CATEGORY_LABEL: Record<IngredientCategory, string> = {
+  groenten: 'Groenten',
+  fruit: 'Fruit',
+  zuivel: 'Zuivel',
+  vis: 'Vis & vlees',
+  kruiden: 'Kruiden',
+  granen: 'Granen',
+  peulvruchten: 'Peulvruchten',
+  overig: 'Overig',
+};
+
+export const INGREDIENT_CATEGORIES = Object.keys(INGREDIENT_CATEGORY_LABEL) as IngredientCategory[];
+
+export type ProductPreference = 'fresh' | 'frozen' | 'canned' | 'dried' | 'any';
+
+export const PRODUCT_PREFERENCE_LABEL: Record<ProductPreference, string> = {
+  fresh: 'Vers',
+  frozen: 'Diepvries',
+  canned: 'Blik/pot',
+  dried: 'Gedroogd',
+  any: 'Maakt niet uit',
+};
+
+export const PRODUCT_PREFERENCES = Object.keys(PRODUCT_PREFERENCE_LABEL) as ProductPreference[];
+
 // Recipe-type badge palette — defined ONCE here, consumed by RecipeTypeBadge.
 // Colors always come from the `badge` tokens in tailwind.config.ts, never ad-hoc classes.
 export const TYPE_BADGE_CLASSES: Record<RecipeType, string> = {

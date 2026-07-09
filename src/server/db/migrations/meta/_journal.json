@@ -8,6 +8,13 @@
       "when": 1783575172896,
       "tag": "0000_greedy_hellcat",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783578838431,
+      "tag": "0001_magenta_talkback",
+      "breakpoints": true
     }
   ]
 }

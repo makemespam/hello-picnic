@@ -5,9 +5,10 @@ import { RecipeTypeBadge } from './RecipeTypeBadge';
 import { Stars } from './Stars';
 
 export interface RecipeCardData {
-  id: string;
+  id: string | number;
   title: string;
   photoUrl?: string | null;
+  blurDataUrl?: string | null;
   type: RecipeType;
   timeMin: number;
   rating: number;
@@ -24,7 +25,7 @@ export interface RecipeCardProps {
 export function RecipeCard({ recipe, href, className }: RecipeCardProps) {
   const body = (
     <div className="flex h-full flex-col overflow-hidden rounded-lg border border-ink/10 bg-surface shadow-sm transition-shadow hover:shadow-md">
-      <PhotoFrame src={recipe.photoUrl} alt={recipe.title} aspect="4:3" />
+      <PhotoFrame src={recipe.photoUrl} alt={recipe.title} aspect="4:3" blurDataUrl={recipe.blurDataUrl} />
       <div className="flex flex-1 flex-col gap-2 p-4">
         <RecipeTypeBadge type={recipe.type} />
         <h3 className="line-clamp-2 text-base font-bold text-ink">{recipe.title}</h3>

@@ -13,12 +13,12 @@ const SENTINELS = {
   anthropicApiKey: 'SK_ANT_SENTINEL_93x',
 } as const;
 
-// Every API route that exists as of WP-03 (docs/ARCHITECTURE.md §4). Extend this
+// Every API route that exists as of WP-04 (docs/ARCHITECTURE.md §4). Extend this
 // list as later WPs add routes — that's the whole point of this test.
-const API_ROUTES = ['/api/settings', '/api/health', '/api/auth/session'];
+const API_ROUTES = ['/api/settings', '/api/health', '/api/auth/session', '/api/recipes'];
 
 // Every shell page (src/shared/labels.ts NAV_ITEMS) plus the settings screen itself.
-const PAGES = ['/', '/plan', '/recepten', '/boodschappen', '/meer', '/meer/instellingen'];
+const PAGES = ['/', '/plan', '/recepten', '/recepten/nieuw', '/boodschappen', '/meer', '/meer/instellingen'];
 
 test.describe('secret-leak crawl', () => {
   // "Logs in as the seeded user" is satisfied by the shared storageState set up by
