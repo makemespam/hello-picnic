@@ -35,6 +35,44 @@ export const TYPE_BADGE_CLASSES: Record<RecipeType, string> = {
   varken: 'bg-badge-varken-bg text-badge-varken-fg',
 };
 
+// Runtime list of recipe types (settings' multi-select), derived from TYPE_LABEL so
+// it can never drift from the badge/label maps above.
+export const RECIPE_TYPES = Object.keys(TYPE_LABEL) as RecipeType[];
+
+// Meal style tags (household settings' style multi-select), ported from
+// legacy/src/lib/types.ts MealStylePreference — a direction, not a hard filter
+// (docs/PROMPTS.md §1 "Stijlvoorkeuren (richting, geen keurslijf)").
+export type MealStyle = 'luxe' | 'gezin' | 'fit' | 'makkelijk' | 'snel' | 'budget' | 'wereldkeuken' | 'comfort';
+
+export const MEAL_STYLE_LABEL: Record<MealStyle, string> = {
+  luxe: 'Luxe',
+  gezin: 'Gezinsvriendelijk',
+  fit: 'Fit & gezond',
+  makkelijk: 'Makkelijk',
+  snel: 'Snel',
+  budget: 'Budgetvriendelijk',
+  wereldkeuken: 'Wereldkeuken',
+  comfort: 'Comfort food',
+};
+
+export const MEAL_STYLES = Object.keys(MEAL_STYLE_LABEL) as MealStyle[];
+
+// AI purposes mirror the `llm_purpose` Postgres enum (src/server/db/schema.ts) and
+// the routing table in docs/PROMPTS.md §7 — defined once here so the DB enum, the
+// AI model registry (src/server/integrations/ai/models.ts) and the settings UI never
+// drift out of sync.
+export const AI_PURPOSES = ['plan', 'replace', 'validate_product', 'scan_card', 'image', 'suggest'] as const;
+export type AiPurpose = (typeof AI_PURPOSES)[number];
+
+export const PURPOSE_LABEL: Record<AiPurpose, string> = {
+  plan: 'Weekmenu samenstellen',
+  replace: 'Eén maaltijd vervangen',
+  validate_product: 'Product kiezen (Picnic/Bring)',
+  scan_card: 'Receptkaart scannen',
+  image: 'Gerechtfoto genereren',
+  suggest: 'Suggesties op Vandaag',
+};
+
 export interface NavItem {
   href: string;
   label: string;

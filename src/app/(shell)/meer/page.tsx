@@ -5,7 +5,8 @@ export default function MeerPage() {
     <EmptyState
       illustration="⚙️"
       title="Instellingen, kosten en meer"
-      description="Hier vind je straks instellingen, kostenoverzicht, agenda-koppeling en het scannen van receptkaarten."
+      description="Kostenoverzicht, agenda-koppeling en het scannen van receptkaarten volgen in latere work packages. Gezinsvoorkeuren, AI-modellen en inloggegevens kun je nu al instellen."
+      action={{ label: 'Naar instellingen', href: '/meer/instellingen' }}
     />
   );
 }
