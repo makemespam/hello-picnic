@@ -46,11 +46,11 @@ De bouw is opgeknipt in **14 werkpakketten** (`docs/workpackages/`) met acceptat
 |---|---|---|
 | Framework | **Next.js 15 (App Router) + React 19 + TypeScript strict** | Team/agent familiarity, API routes + server components in one deploy, best AI-agent training coverage |
 | Styling | **Tailwind CSS + shadcn/ui (Radix)** | Speed, accessible primitives, consistent tokens |
-| Database | **SQLite via Drizzle ORM** (`/data/app.db`) | Family scale, zero-ops on VPS, trivial backups; Drizzle gives typed schema + migrations |
+| Database | **PostgreSQL 16 via Drizzle ORM** — dedicated database + role on the VPS's shared Postgres instance | Owner already operates Postgres on this VPS for other software → one engine, one backup/monitoring regime; no migration if the app ever grows; Drizzle gives typed schema + migrations either way |
 | Auth | **Auth.js v5, credentials provider, bcrypt** | Simple household login; session cookies; no external IdP |
 | AI layer | **Vercel AI SDK** (`ai` + `@ai-sdk/anthropic`, `@ai-sdk/openai`, `@ai-sdk/google`, `@ai-sdk/deepseek`) | One abstraction over all four providers, `generateObject` with Zod schemas kills the JSON-regex fragility of v1 |
 | Validation | **Zod at every boundary** (LLM output, API input, DB rows out) | The #1 reliability lesson from v1 |
-| Images | Files on disk under `DATA_DIR/images`, processed with **sharp**, served via a route handler | No base64 blobs in localStorage/DB |
+| Images | **StorageAdapter** with two drivers: `fs` (default, `DATA_DIR/images` volume) and `s3` (MinIO/S3-compatible, env-configured); processed with **sharp**, served via a route handler | Photos do NOT go into Postgres: blobs bloat dumps/backups, waste DB memory, and serve slower than files/objects — an `images` metadata table + orphan sweep gives the consistency benefit without the cost. The s3 driver lets the owner point at a shared homelab MinIO later by flipping env vars only |
 | PWA | **Serwist** service worker + web manifest | Installable, camera via `<input capture>` / `getUserMedia` |
 | Android | **Capacitor** wrapper around the deployed URL (thin shell) | One codebase; real APK for both phones |
 | Testing | **Vitest** (unit) + **Playwright** (e2e + screenshots) + recorded fixtures | See `docs/TESTING.md`; never hit live Picnic/LLM in CI |
@@ -58,7 +58,7 @@ De bouw is opgeknipt in **14 werkpakketten** (`docs/workpackages/`) met acceptat
 | Deploy | **Docker multi-stage + docker-compose + Caddy** on the existing Leaseweb VPS | Coexists with the bookkeeping app; Caddy handles TLS |
 | Secrets | LLM keys via server env; runtime secrets (Picnic/Bring/Google tokens) in DB, **AES-256-GCM encrypted with `APP_SECRET`** | Nothing plaintext on disk; nothing secret ever returned to the client |
 
-Model IDs are **never hardcoded as guesses**: `src/lib/ai/models.ts` is the single registry, and WP-05 requires verifying every ID against live provider docs at implementation time (v1 shipped non-existent model names — do not repeat).
+Model IDs are **never hardcoded as guesses**: `src/server/integrations/ai/models.ts` is the single registry, and WP-05 requires verifying every ID against live provider docs at implementation time and stamping `verifiedOn`. Lesson from v1: it pinned unverified preview IDs, one of which (`gemini-3.1-flash-lite-preview`) Google retired on 2026-07-09 — pin stable IDs, and surface registry staleness in the cost dashboard.
 
 ## 4. Repository strategy
 

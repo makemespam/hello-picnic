@@ -13,8 +13,9 @@ Android (Capacitor shell)          Browser (PWA)
         ├─ Route handlers /api/* (Zod-validated)
         ├─ Service layer  src/server/services/*
         ├─ Integrations   src/server/integrations/{picnic,bring,google,ai}
-        └─ Drizzle ORM ──► SQLite  /data/app.db
-                           Files   /data/images/*
+        ├─ Drizzle ORM ──► PostgreSQL 16 (shared VPS instance, own database+role)
+        └─ StorageAdapter ─► fs driver: /data/images/*  (default)
+                             s3 driver: MinIO/S3 bucket (optional, env-switched)
 ```
 
 Rules:
@@ -45,9 +46,21 @@ e2e/                   # Playwright specs + fixtures
 legacy/                # old v1 app (reference only; deleted in WP-14)
 ```
 
-## 3. Database schema (Drizzle / SQLite)
+## 3. Database schema (Drizzle / PostgreSQL)
 
 Single household per deployment; `household_id` columns exist for future multi-tenancy but are constant `1` in v2.
+
+Connection via `DATABASE_URL` (e.g. `postgres://hellopicnic:...@postgres:5432/hellopicnic`). The app gets its **own database and role** on the VPS's shared Postgres instance (least privilege: no superuser, no access to other apps' databases). Local dev and CI run a disposable Postgres container.
+
+**Images are never stored as blobs in Postgres.** The `images` table holds metadata + a storage key; bytes live behind the StorageAdapter (§3a). Rationale: blobs bloat `pg_dump`/restore times, occupy shared buffers, and serve slower than files/objects, while the metadata-table + weekly orphan-sweep (`scripts/sweep-orphans.ts`, WP-04) provides the consistency guarantees that would otherwise argue for in-DB storage.
+
+### 3a. Object/image storage — StorageAdapter
+
+`src/server/storage/` exposes `put/get/delete/stream(key)` with two drivers, selected by env:
+- `STORAGE_DRIVER=fs` (default): files under `DATA_DIR/images`, atomic writes (tmp+rename).
+- `STORAGE_DRIVER=s3`: any S3-compatible endpoint (MinIO, Garage, AWS) via `S3_ENDPOINT/S3_BUCKET/S3_ACCESS_KEY/S3_SECRET_KEY` — for when the owner sets up shared homelab object storage. No code changes, env only.
+
+CI and dev use the fs driver. The `/api/images/:id` handler streams from the adapter with long-lived cache headers (immutable keys per derivative).
 
 ```
 users              id, household_id, name, email, password_hash, role('adult'|'child'), created_at
@@ -163,8 +176,10 @@ services:
   app:
     image: ghcr.io/<owner>/hello-picnic:latest   # or build: .
     restart: unless-stopped
-    env_file: .env                                # APP_SECRET, AUTH_SECRET, LLM keys, PICNIC_API_VERSION, TZ=Europe/Amsterdam
-    volumes: [ "hp_data:/data" ]
+    env_file: .env    # DATABASE_URL, APP_SECRET, AUTH_SECRET, LLM keys,
+                      # PICNIC_API_VERSION, STORAGE_DRIVER, TZ=Europe/Amsterdam
+    volumes: [ "hp_data:/data" ]                  # images (fs driver) + uploads
+    networks: [ shared_infra ]                    # reach the VPS's postgres
   caddy:
     image: caddy:2
     restart: unless-stopped
@@ -173,11 +188,14 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
 volumes: { hp_data: {}, caddy_data: {} }
+networks: { shared_infra: { external: true } }
 ```
+
+Postgres itself is **shared VPS infrastructure** (the owner runs it for multiple apps): one `postgres:16` compose project with its own volume and the `shared_infra` network; this app only consumes `DATABASE_URL`. `deploy/README.md` documents the one-time `CREATE ROLE hellopicnic ... CREATE DATABASE hellopicnic OWNER hellopicnic` step. For dev, `deploy/docker-compose.dev.yml` spins a local Postgres.
 
 `Caddyfile`: `eten.<jouwdomein>.nl { reverse_proxy app:3000 }` — coexists with the bookkeeping app by adding another site block or reusing an existing Caddy/Traefik on the VPS (then drop the caddy service and join its network).
 
-Backups: nightly cron on the VPS — `sqlite3 /data/app.db ".backup /data/backup/app-$(date +%F).db"` + rsync/rclone of `/data` off-box; keep 14 days. Update procedure: `docker compose pull && docker compose up -d` (documented in `deploy/README.md`, WP-01).
+Backups: nightly cron — `pg_dump -Fc hellopicnic > /backup/hellopicnic-$(date +%F).dump` (fits the owner's existing Postgres backup regime) + rsync/rclone of the images volume (or MinIO bucket mirror) off-box; keep 14 days. Restore procedure documented and **tested once** in WP-01. Update procedure: `docker compose pull && docker compose up -d`.
 
 ## 9. Security requirements (hard, tested)
 

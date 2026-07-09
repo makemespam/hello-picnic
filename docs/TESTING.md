@@ -7,7 +7,7 @@ Tests are the safety net that lets cheaper builder agents work autonomously. A W
 | Layer | Tool | Scope | Speed budget |
 |---|---|---|---|
 | Unit | **Vitest** | services, basket optimizer, unit parsing, crypto, prompt builders, Zod schemas | < 30 s total |
-| API/integration | **Vitest + test SQLite** | route handlers with an in-memory/tmp DB, integrations mocked at fetch level | < 60 s |
+| API/integration | **Vitest + disposable Postgres** (testcontainer / CI service, schema per test-run) | route handlers with a real Postgres, integrations mocked at fetch level | < 90 s |
 | E2E | **Playwright** (chromium, 390×844 + 1280×900) | user flows against a seeded dev server | < 5 min |
 | Visual | Playwright screenshots | every primary screen, both viewports | included above |
 
@@ -48,11 +48,11 @@ Tests are the safety net that lets cheaper builder agents work autonomously. A W
 
 ## 5. CI pipeline (GitHub Actions, WP-01)
 
-`pull_request` + `push main`:
+`pull_request` + `push main` (job runs a `postgres:16` **service container**; `DATABASE_URL` points at it):
 ```
-1. install (npm ci, cache)            4. vitest run (unit + api)
-2. lint (eslint) + typecheck (tsc)    5. playwright e2e (FAKE_AI=1, seeded DB)
-3. drizzle migrations dry-run         6. upload screenshot + report artifacts
+1. install (npm ci, cache)            4. vitest run (unit + api, service Postgres)
+2. lint (eslint) + typecheck (tsc)    5. playwright e2e (FAKE_AI=1, seeded service Postgres)
+3. drizzle migrate against service    6. upload screenshot + report artifacts
 ```
 On `main` additionally: docker build + push `ghcr.io/<owner>/hello-picnic:latest` (deploy stays a manual `compose pull && up -d` in v2).
 

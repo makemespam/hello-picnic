@@ -8,7 +8,7 @@ How this project is built by a mix of expensive "architect" models and cheaper "
 |---|---|---|
 | **Architect** | Claude Fable / Claude Opus-class (expensive tier) | Owns `docs/` as the contract; splits/adjusts work packages; reviews every PR (code + screenshots + acceptance criteria); makes irreversible decisions (schema, security, API shape); writes the tricky 10% (crypto, basket optimizer core, AI layer) when builders struggle |
 | **Builder (autonomous)** | Claude Sonnet-class — architect may spawn as subagents, or run in separate sessions | Implements one WP per branch/PR following docs; writes the tests the WP demands; posts screenshots in the PR |
-| **Builder (owner-driven)** | DeepSeek (v3/v4-class) — owner pastes a prepared prompt into DeepSeek and applies the output | Well-bounded, mechanical work: port legacy heuristics, fixture generation, documentation, seed data, translation of specs into test cases |
+| **Builder (owner-driven)** | DeepSeek `deepseek-v4-pro` — owner pastes a prepared prompt into DeepSeek and applies the output | Well-bounded, mechanical work: port legacy heuristics, fixture generation, documentation, seed data, translation of specs into test cases |
 | **Owner** | Roeland | Approves screenshots/UX, runs manual test rounds with real credentials, merges after architect approval, runs `import-legacy` and deploys |
 
 ## 2. The control loop (per work package)

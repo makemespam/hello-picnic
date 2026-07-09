@@ -114,15 +114,17 @@ Weekly home-screen suggestions come from **code first** (rating, favorite, seaso
 
 ## 7. Model routing (defaults; owner-overridable per purpose in settings)
 
-| Purpose | Default | Budget alternative | Notes |
-|---|---|---|---|
-| plan / replace | Anthropic Sonnet (latest) | DeepSeek chat | quality-sensitive; prompt caching on |
-| scan_card | Gemini Flash (vision) | OpenAI 4o-mini-class | 80-card bulk → cost matters; verify Dutch OCR quality in WP-08 eval |
-| validate_product | Gemini Flash / Haiku-class | DeepSeek chat | high frequency, temperature 0 |
-| image | Gemini image ("Nano Banana" line) | OpenAI gpt-image line | quality first — photos are the app's soul |
-| suggest | cheapest available | — | optional call |
+Web-verified on **2026-07-11** (architect). Still re-verify in WP-05 and stamp `verifiedOn` — providers move fast, and preview IDs get retired (Google discontinued `gemini-3.1-flash-lite-preview` on 2026-07-09, which legacy v1 still references).
 
-**WP-05 must resolve concrete model IDs + prices from live provider docs at build time** and stamp `verifiedOn` in `models.ts`. Do not copy IDs from this document or from legacy code — v1 shipped fictional IDs.
+| Purpose | Default (verified 2026-07) | Alternatives | Notes |
+|---|---|---|---|
+| plan / replace | `claude-sonnet-5` ($2/$10 intro until 2026-08-31, then $3/$15 per MTok) | `deepseek-v4-pro` ($0.44/$0.87, budget) · `gpt-5.5` | quality-sensitive; Anthropic prompt caching on (cache reads ≈ 10% of input price) |
+| scan_card (vision) | `gemini-3.5-flash` (GA) | `gpt-5.4-mini` | 80-card bulk → cost matters; Dutch OCR quality decided by the WP-08 eval |
+| validate_product | `claude-haiku-4-5-20251001` ($1/$5) or `gemini-3.5-flash` | `deepseek-v4-flash` ($0.14/$0.28) | high frequency, temperature 0 |
+| image | Google **Nano Banana 2** line (fast, ~1–3 s, cheap) | `gpt-image-1.5` / `gpt-image-2` (OpenAI) · Imagen 4 (max photorealism) | quality first — photos are the app's soul; run a 5-dish taste test in WP-07 before fixing the default |
+| suggest | `deepseek-v4-flash` or `claude-haiku-4-5` | — | optional call, graceful skip |
+
+Provider notes (2026-07): DeepSeek's `deepseek-chat`/`deepseek-reasoner` aliases are **deprecated per 2026-07-24** — use `deepseek-v4-flash`/`deepseek-v4-pro` only. OpenAI's GPT-5.6 (Sol/Terra/Luna) is limited preview — don't ship preview IDs as defaults. Anthropic tiers: Haiku 4.5 → Sonnet 5 → Opus 4.8 ($5/$25) → Fable 5 ($10/$50); the top two are architect-tier, not app-runtime tier.
 
 ## 8. Cost expectations (order of magnitude, to sanity-check the ledger)
 
