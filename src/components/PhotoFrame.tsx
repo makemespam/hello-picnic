@@ -32,6 +32,9 @@ export function PhotoFrame({ src, alt, aspect = '4:3', className }: PhotoFramePr
     <div className={cn('relative overflow-hidden bg-primary-soft', ASPECT_CLASS[aspect], className)}>
       {src ? (
         <>
+          {/* eslint-disable-next-line @next/next/no-img-element -- photo sources (StorageAdapter
+              route handler, later external URLs) aren't known/configurable as next/image
+              remotePatterns yet; revisit once WP-04/WP-07 land the image pipeline. */}
           <img
             src={src}
             alt={alt}

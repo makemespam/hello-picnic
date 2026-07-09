@@ -3,11 +3,16 @@ import { cn } from './cn';
 
 export type AlertVariant = 'info' | 'success' | 'warning' | 'danger';
 
-const VARIANT_META: Record<AlertVariant, { icon: string; className: string; role: 'status' | 'alert' }> = {
-  info: { icon: 'ℹ️', className: 'border-info/30 bg-info/10 text-info', role: 'status' },
-  success: { icon: '✓', className: 'border-success/30 bg-success/10 text-success', role: 'status' },
-  warning: { icon: '⚠️', className: 'border-warning/30 bg-warning/10 text-warning', role: 'alert' },
-  danger: { icon: '⚠️', className: 'border-danger/30 bg-danger/10 text-danger', role: 'alert' },
+// Tinted backgrounds with variant-colored text failed axe's AA contrast check (the /10
+// tint isn't enough to keep e.g. text-success and text-warning at 4.5:1 on 14px text).
+// Fix: white/surface background + a colored left accent border + colored icon/title
+// (colored text on plain white passes AA per docs/DESIGN_PRINCIPLES.md §2), body copy
+// stays `text-ink` which is guaranteed AA on its own.
+const VARIANT_META: Record<AlertVariant, { icon: string; borderClass: string; textClass: string; role: 'status' | 'alert' }> = {
+  info: { icon: 'ℹ️', borderClass: 'border-l-info', textClass: 'text-info', role: 'status' },
+  success: { icon: '✓', borderClass: 'border-l-success', textClass: 'text-success', role: 'status' },
+  warning: { icon: '⚠️', borderClass: 'border-l-warning', textClass: 'text-warning', role: 'alert' },
+  danger: { icon: '⚠️', borderClass: 'border-l-danger', textClass: 'text-danger', role: 'alert' },
 };
 
 export interface AlertProps {
@@ -25,13 +30,13 @@ export function Alert({ variant, title, children, action, className }: AlertProp
     <div
       role={meta.role}
       aria-live={meta.role === 'alert' ? 'assertive' : 'polite'}
-      className={cn('flex gap-3 rounded-lg border p-4 text-sm', meta.className, className)}
+      className={cn('flex gap-3 rounded-lg border border-ink/10 border-l-4 bg-surface p-4 text-sm', meta.borderClass, className)}
     >
-      <span aria-hidden="true" className="leading-none">
+      <span aria-hidden="true" className={cn('leading-none', meta.textClass)}>
         {meta.icon}
       </span>
-      <div className="flex-1">
-        {title && <p className="font-semibold">{title}</p>}
+      <div className="flex-1 text-ink">
+        {title && <p className={cn('font-semibold', meta.textClass)}>{title}</p>}
         <div className={title ? 'mt-0.5' : undefined}>{children}</div>
         {action && <div className="mt-2">{action}</div>}
       </div>

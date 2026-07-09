@@ -10,6 +10,7 @@ test('health endpoint responds', async ({ request }) => {
 
 test('home page renders', async ({ page }, testInfo) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Hello Picnic v2' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Vandaag' })).toBeVisible();
+  await expect(page.getByText('Nog geen etentje gepland')).toBeVisible();
   await snap(page, testInfo, 'home-placeholder');
 });
