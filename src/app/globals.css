@@ -7,4 +7,17 @@
   :focus-visible {
     @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
   }
+
+  /* Reset the UA default <dialog> chrome so Sheet.tsx can style it with Tailwind utilities. */
+  dialog {
+    border: none;
+    padding: 0;
+    max-width: none;
+    max-height: none;
+    color: inherit;
+  }
+
+  dialog::backdrop {
+    background-color: rgb(31 41 55 / 0.4); /* ink @ 40% */
+  }
 }
