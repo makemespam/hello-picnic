@@ -11,6 +11,7 @@ import { images, planMeals, plans, recipeIngredients, recipes } from '@/server/d
 import { resetStorageAdapterForTests } from '@/server/storage';
 import { deriveImageKey } from '@/server/storage/imageKeys';
 import {
+  attachImageToRecipe,
   blurDataUrlFor,
   deleteImage,
   deleteImagesForRecipe,
@@ -18,6 +19,7 @@ import {
   InvalidImageError,
   readImageDerivative,
   saveRecipeImage,
+  saveScanPhoto,
 } from './imageService';
 
 let tmpDir: string;
@@ -28,6 +30,14 @@ async function makeTestPng(width = 100, height = 80): Promise<Buffer> {
   return sharp({ create: { width, height, channels: 3, background: { r: 200, g: 80, b: 40 } } })
     .png()
     .toBuffer();
+}
+
+/** A 100x60 JPEG carrying EXIF orientation 6 (90° CW) — visually 60 wide x 100 tall. */
+async function makeExifRotatedJpeg(): Promise<Buffer> {
+  const flat = await sharp({ create: { width: 100, height: 60, channels: 3, background: { r: 10, g: 120, b: 200 } } })
+    .jpeg()
+    .toBuffer();
+  return sharp(flat).withMetadata({ orientation: 6 }).jpeg().toBuffer();
 }
 
 beforeAll(async () => {
@@ -117,6 +127,49 @@ describe('saveRecipeImage', () => {
     await expect(saveRecipeImage({ recipeId: testRecipeId, kind: 'generated', buffer: huge })).rejects.toBeInstanceOf(
       ImageTooLargeError
     );
+  });
+
+  it('EXIF-rotates a sideways phone photo before storing (WP-08: card scans are routinely captured sideways)', async () => {
+    const buffer = await makeExifRotatedJpeg();
+    const row = await saveRecipeImage({ recipeId: testRecipeId, kind: 'card', buffer });
+
+    // The visually-correct (post-rotation) dimensions are recorded, not the raw
+    // encoded 100x60 — and orientation is stripped, so the derivative itself renders
+    // upright without a consumer having to re-apply EXIF orientation.
+    expect(row.width).toBe(60);
+    expect(row.height).toBe(100);
+
+    const w1280 = await readImageDerivative(row.id, '1280w');
+    const meta = await sharp(w1280!.buffer).metadata();
+    expect(meta.width).toBe(60);
+    expect(meta.height).toBe(100);
+    expect(meta.orientation).toBeUndefined();
+  });
+});
+
+describe('saveScanPhoto / attachImageToRecipe', () => {
+  it('stores a card photo with no recipeId yet', async () => {
+    const buffer = await makeTestPng();
+    const row = await saveScanPhoto(buffer);
+
+    expect(row.kind).toBe('card');
+    expect(row.recipeId).toBeNull();
+    expect(row.mime).toBe('image/webp');
+
+    const w1280 = await readImageDerivative(row.id, '1280w');
+    expect(w1280).not.toBeNull();
+  });
+
+  it('attachImageToRecipe links an existing (previously unattached) image to a recipe', async () => {
+    const buffer = await makeTestPng();
+    const row = await saveScanPhoto(buffer);
+    expect(row.recipeId).toBeNull();
+
+    await attachImageToRecipe(row.id, testRecipeId);
+
+    const db = getDb();
+    const [updated] = await db.select().from(images).where(eq(images.id, row.id)).limit(1);
+    expect(updated?.recipeId).toBe(testRecipeId);
   });
 });
 

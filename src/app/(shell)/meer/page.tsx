@@ -6,6 +6,7 @@ import Link from 'next/link';
 const MENU_ITEMS = [
   { href: '/meer/instellingen', emoji: '🧑‍🍳', title: 'Instellingen', description: 'Gezinsvoorkeuren, AI-modellen per taak en inloggegevens voor Picnic/Bring.' },
   { href: '/meer/kosten', emoji: '💶', title: 'Kosten', description: 'AI-gebruik en kosten per taak en per model.' },
+  { href: '/meer/scannen', emoji: '📷', title: 'Scannen', description: "Upload foto's van HelloFresh-kaarten en zet ze om in bibliotheekrecepten." },
 ];
 
 export default function MeerPage() {

@@ -36,6 +36,13 @@
       "when": 1783591809626,
       "tag": "0004_dusty_hemingway",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783598527551,
+      "tag": "0005_lazy_goblin_queen",
+      "breakpoints": true
     }
   ]
 }

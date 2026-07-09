@@ -136,6 +136,8 @@ Alternative (owner may buy a mini-PC): identical compose stack runs on any Linux
 
 | WP-10 | ✅ done | 2026-07-11 | Sonnet builder + architect line-review (390 unit + 67 e2e green). shopping_items schema, buildFromPlan aggregation (normalized keys, unit-aware merge, pantry exclusion, per-day breakdown), PURE basketOptimizer (promo classification: 2e gratis / 2e halve prijs / N-voor-M / bundelprijs / korting; count search minimizing waste+price; overshoot warnings), resolve pipeline (cache → heuristics → LLM validator → optimizer, resumable per-item), idempotent send with rate limiter and 429-retryable items, /boodschappen UI with candidate switcher, promo chips and basket total. Architect fixed one spec boundary in line review: need ≥1.2 packs + free-packs promo now forces the bundle (2 regression tests added). Core loop plan→boodschappen→mandje is COMPLETE — ready for first real-world VPS test. |
 
+| WP-08 | ✅ done | 2026-07-11 | Sonnet builder + architect (437 unit + 70 e2e green). card_scans schema, cardExtractionSchema with per-field confidence + issues, vision images param on callStructured (backward-compatible, all 4 providers), scanService (EXIF-safe upload, pairing, batch extraction resumable from DB statuses, rescaling cardServings→household in code, Levenshtein duplicate detector with confirm dialog), /meer/scannen UI (upload/pair/progress/review with low-confidence flagging, bulk approve high-confidence). Accepted deviations: scan_card default provisionally wired to verified gemini-3.5-flash (documented in models.ts — live Dutch-OCR eval is an owner deploy-time task); synthetic fixture card photos (FAKE_AI supplies extraction content). |
+
 ## 10. Risks
 
 | Risk | Mitigation |

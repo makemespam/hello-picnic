@@ -29,12 +29,20 @@ export default async function ReceptenPage({ searchParams }: ReceptenPageProps) 
         title="Recepten"
         description="Jullie bibliotheek — foto's van HelloFresh-kaarten en zelfgemaakte recepten."
         action={
-          <Link
-            href="/recepten/nieuw"
-            className="inline-flex h-11 items-center justify-center rounded-full bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover"
-          >
-            + Nieuw recept
-          </Link>
+          <div className="flex gap-2">
+            <Link
+              href="/meer/scannen"
+              className="inline-flex h-11 items-center justify-center rounded-full border border-ink/15 px-5 text-sm font-semibold text-ink hover:bg-ink/5"
+            >
+              Scan kaarten
+            </Link>
+            <Link
+              href="/recepten/nieuw"
+              className="inline-flex h-11 items-center justify-center rounded-full bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover"
+            >
+              + Nieuw recept
+            </Link>
+          </div>
         }
       />
 
@@ -48,12 +56,17 @@ export default async function ReceptenPage({ searchParams }: ReceptenPageProps) 
             description="Probeer een andere zoekterm of een ander filter."
           />
         ) : (
-          <EmptyState
-            illustration="📖"
-            title="Nog geen recepten"
-            description="Voeg je eerste recept handmatig toe. Kaarten scannen komt in een latere update."
-            action={{ label: 'Voeg recept toe', href: '/recepten/nieuw' }}
-          />
+          <div className="flex flex-col items-center gap-3">
+            <EmptyState
+              illustration="📖"
+              title="Nog geen recepten"
+              description="Scan je HelloFresh-kaarten om je bibliotheek in één keer te vullen, of voeg een recept handmatig toe."
+              action={{ label: 'Scan kaarten', href: '/meer/scannen' }}
+            />
+            <Link href="/recepten/nieuw" className="text-sm font-semibold text-primary underline underline-offset-2">
+              Of voeg een recept handmatig toe
+            </Link>
+          </div>
         )
       ) : (
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3">

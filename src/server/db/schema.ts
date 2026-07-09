@@ -14,15 +14,17 @@
 //   failed row is resumable/explainable without overloading `warning` (optimizer-owned:
 //   overshoot text) or the `status` enum (cart-state only, per ARCHITECTURE §3).
 
-import { boolean, index, integer, jsonb, numeric, pgEnum, pgTable, primaryKey, serial, text, timestamp } from 'drizzle-orm/pg-core';
+import { boolean, index, integer, jsonb, numeric, pgEnum, pgTable, primaryKey, serial, text, timestamp, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import {
   AI_PURPOSES,
+  CARD_SCAN_STATUSES,
   INGREDIENT_CATEGORIES,
   PRODUCT_PREFERENCES,
   RECIPE_DIFFICULTIES,
   RECIPE_SOURCES,
   RECIPE_STATUSES,
   RECIPE_TYPES,
+  type CardScanStatus,
   type Difficulty,
   type IngredientCategory,
   type MealStyle,
@@ -64,6 +66,9 @@ export const productPreferenceEnum = pgEnum(
   PRODUCT_PREFERENCES as [ProductPreference, ...ProductPreference[]]
 );
 export const imageKindEnum = pgEnum('image_kind', ['card', 'generated', 'derived']);
+
+// Card-scan domain (WP-08, docs/ARCHITECTURE.md §3).
+export const cardScanStatusEnum = pgEnum('card_scan_status', CARD_SCAN_STATUSES as [CardScanStatus, ...CardScanStatus[]]);
 
 // Weekplan domain (WP-06, docs/ARCHITECTURE.md §3).
 export const planStatusEnum = pgEnum('plan_status', ['draft', 'final']);
@@ -142,7 +147,10 @@ export const images = pgTable('images', {
   mime: text('mime').notNull(),
   width: integer('width').notNull(),
   height: integer('height').notNull(),
-  recipeId: integer('recipe_id').references(() => recipes.id, { onDelete: 'cascade' }),
+  // Explicit `AnyPgColumn` return type breaks the images -> recipes -> cardScans ->
+  // images circular type-inference chain (TS can't infer a table's own column types
+  // while resolving a `.references()` callback that's part of a cycle back to it).
+  recipeId: integer('recipe_id').references((): AnyPgColumn => recipes.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -163,10 +171,13 @@ export const recipes = pgTable(
     // Soft reference to images.id — see the comment on `images` above for why this
     // isn't a `.references()` foreign key.
     heroImageId: integer('hero_image_id'),
-    // WP-08 (card_scans table) will add the FK once that table exists; builders may
-    // not create new tables outside their own WP (.cursorrules), so this stays a
-    // plain nullable column until then.
-    cardScanId: integer('card_scan_id'),
+    // Forward reference to `cardScans` (defined further down this file, after
+    // `recipeIngredients`) — safe because `.references()` takes a callback that's only
+    // invoked once the whole module has finished evaluating (same pattern as `images.
+    // recipeId` above referencing `recipes` before it's declared). `onDelete: 'set
+    // null'`: if a scan audit row is ever purged, the recipe it produced survives —
+    // only its provenance link is cleared.
+    cardScanId: integer('card_scan_id').references((): AnyPgColumn => cardScans.id, { onDelete: 'set null' }),
     nutritionJson: jsonb('nutrition_json').$type<Record<string, unknown>>(),
     status: recipeStatusEnum('status').notNull().default('active'),
     rating: integer('rating').notNull().default(0),
@@ -202,6 +213,31 @@ export const recipeIngredients = pgTable(
     sortOrder: integer('sort_order').notNull().default(0),
   },
   (table) => [index('recipe_ingredients_recipe_id_idx').on(table.recipeId)]
+);
+
+// Card-scan domain (WP-08, docs/ARCHITECTURE.md §3): one row per HelloFresh card
+// (front photo required, back photo optional — "alleen voorkant" allowed).
+// `frontImageId`/`backImageId` point at `images` rows uploaded via imageService
+// (kind='card', recipeId null until approve() links the front photo to the created
+// recipe as its hero). `extractionJson` holds the post-rescale
+// `StoredCardExtractionDto` shape (src/shared/scans.ts) once extraction succeeds.
+export const cardScans = pgTable(
+  'card_scans',
+  {
+    id: serial('id').primaryKey(),
+    householdId: integer('household_id').notNull().default(HOUSEHOLD_ID),
+    // `onDelete: 'cascade'`: the photo IS the scan — if the underlying image is ever
+    // hard-deleted, the scan metadata pointing at it no longer means anything either.
+    frontImageId: integer('front_image_id')
+      .notNull()
+      .references((): AnyPgColumn => images.id, { onDelete: 'cascade' }),
+    backImageId: integer('back_image_id').references((): AnyPgColumn => images.id, { onDelete: 'cascade' }),
+    status: cardScanStatusEnum('status').notNull().default('uploaded'),
+    extractionJson: jsonb('extraction_json').$type<Record<string, unknown>>(),
+    error: text('error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('card_scans_household_status_idx').on(table.householdId, table.status)]
 );
 
 // Weekplan domain (WP-06, docs/ARCHITECTURE.md §3): a plan is one week's worth of

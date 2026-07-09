@@ -9,6 +9,7 @@ import { and, desc, eq, gte, ilike, or, type SQL } from 'drizzle-orm';
 import { getDb } from '@/server/db/client';
 import { HOUSEHOLD_ID, recipeIngredients, recipes } from '@/server/db/schema';
 import {
+  attachImageToRecipe,
   blurDataUrlFromRow,
   deleteImagesForRecipe,
   getImageRowsByIds,
@@ -263,6 +264,33 @@ export async function recordRecipePlanned(id: number, plannedAt: Date = new Date
     .update(recipes)
     .set({ timesPlanned: existing.timesPlanned + 1, lastPlannedAt: plannedAt, updatedAt: new Date() })
     .where(eq(recipes.id, id));
+}
+
+// --- Card-scan integration (WP-08, scanService.approveScan) -------------------------
+
+export interface ActiveRecipeTitle {
+  id: number;
+  title: string;
+}
+
+/** Titles of every active recipe — feeds scanService's duplicate-title similarity check before creating a recipe from an approved scan. */
+export async function listActiveTitles(): Promise<ActiveRecipeTitle[]> {
+  const db = getDb();
+  return db
+    .select({ id: recipes.id, title: recipes.title })
+    .from(recipes)
+    .where(and(eq(recipes.householdId, HOUSEHOLD_ID), eq(recipes.status, 'active')));
+}
+
+/**
+ * Links a card scan's already-stored front photo as the newly-created recipe's hero
+ * (reusing the existing derivatives via imageService.attachImageToRecipe instead of
+ * re-deriving/re-storing them) and records the scan as its provenance.
+ */
+export async function attachCardScanPhoto(recipeId: number, frontImageId: number, cardScanId: number): Promise<void> {
+  await attachImageToRecipe(frontImageId, recipeId);
+  const db = getDb();
+  await db.update(recipes).set({ heroImageId: frontImageId, cardScanId, updatedAt: new Date() }).where(eq(recipes.id, recipeId));
 }
 
 // --- Legacy-import lookup (scripts/import-legacy.ts idempotency) --------------------

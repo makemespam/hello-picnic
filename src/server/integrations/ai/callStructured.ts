@@ -6,7 +6,8 @@
 // (success or failure) via costService.
 
 import { APICallError, generateObject, NoObjectGeneratedError } from 'ai';
-import type { ZodType } from 'zod';
+import type { ModelMessage } from 'ai';
+import type { z, ZodType } from 'zod';
 import * as costService from '@/server/services/costService';
 import { getAiModelOverrides } from '@/server/services/settingsService';
 import type { AiPurpose } from '@/shared/labels';
@@ -34,15 +35,39 @@ const BACKOFF_JITTER_MS = 500;
 const ZERO_TEMPERATURE_PURPOSES = new Set<AiPurpose>(['validate_product', 'scan_card']);
 const DEFAULT_TEMPERATURE = 0.4;
 
-export interface CallStructuredInput<T> {
+/** One image attached to a vision call (e.g. purpose `scan_card`). */
+export interface CallStructuredImageInput {
+  /** IANA media type, e.g. "image/jpeg" or "image/webp". */
+  mimeType: string;
+  /** Base64-encoded image bytes (no "data:" prefix). */
+  base64: string;
+}
+
+// Generic over the SCHEMA type `S` (not directly over the value type `T`), deriving
+// the value type via `z.output<S>` — same pattern (and same reason) as
+// src/server/http/recipePayload.ts's `parseRecipePayload<S extends z.ZodTypeAny>`:
+// binding a generic function param directly off `ZodType<T>` makes TS infer `T` from
+// zod's Input side in some structural-inference paths (visible once a schema has any
+// `.default()` field — cardExtractionSchema's `ingredients`/`pantry` do), silently
+// producing "optional vs required" mismatches at the call site instead of the correct
+// output type.
+export interface CallStructuredInput<S extends ZodType<unknown>> {
   purpose: AiPurpose;
-  schema: ZodType<T>;
+  schema: S;
   system: string;
   prompt: string;
   /** Forces a specific registry model id for this call, bypassing settings/registry routing. */
   modelOverride?: string;
   /** Overrides the purpose-based temperature default. */
   temperature?: number;
+  /**
+   * Images for a vision call (docs/workpackages/WP-08-card-scanning.md §3: "vision
+   * support in the AI layer ... optional param"). Mapped to multimodal message content
+   * for all four providers via the AI SDK's message format — existing text-only call
+   * sites are unaffected (this param is optional and defaults to none). FAKE_AI ignores
+   * images entirely; it only ever reads the purpose's fixture file.
+   */
+  images?: CallStructuredImageInput[];
 }
 
 function defaultTemperatureFor(purpose: AiPurpose): number {
@@ -169,7 +194,30 @@ function buildSystemInstruction(provider: AiProvider, system: string) {
   };
 }
 
-export async function callStructured<T>(input: CallStructuredInput<T>): Promise<T> {
+/**
+ * Maps the plain-text prompt (+ optional images) to whichever of `generateObject`'s
+ * mutually-exclusive `prompt`/`messages` fields fits: a bare string when there are no
+ * images (unchanged behavior for every existing text-only call site), or a single
+ * multimodal user message (text part + one file part per image, AI SDK message format —
+ * works identically across all four providers) when there are.
+ */
+function buildPromptField(promptText: string, images?: CallStructuredImageInput[]): { prompt: string } | { messages: ModelMessage[] } {
+  if (!images || images.length === 0) return { prompt: promptText };
+
+  return {
+    messages: [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: promptText },
+          ...images.map((image) => ({ type: 'file' as const, mediaType: image.mimeType, data: image.base64 })),
+        ],
+      },
+    ],
+  };
+}
+
+export async function callStructured<S extends ZodType<unknown>>(input: CallStructuredInput<S>): Promise<z.output<S>> {
   const { purpose, schema, system, prompt } = input;
   const model = await resolveModel(purpose, input.modelOverride);
   const temperature = input.temperature ?? defaultTemperatureFor(purpose);
@@ -203,7 +251,7 @@ export async function callStructured<T>(input: CallStructuredInput<T>): Promise<
           model: languageModel,
           schema,
           system: systemInstruction,
-          prompt: promptText,
+          ...buildPromptField(promptText, input.images),
           temperature,
           abortSignal: signal,
         })
@@ -228,14 +276,14 @@ export async function callStructured<T>(input: CallStructuredInput<T>): Promise<
   throw aiError;
 }
 
-async function callStructuredFake<T>(args: {
+async function callStructuredFake<S extends ZodType<unknown>>(args: {
   purpose: AiPurpose;
-  schema: ZodType<T>;
+  schema: S;
   system: string;
   prompt: string;
   model: AiModel;
   start: number;
-}): Promise<T> {
+}): Promise<z.output<S>> {
   const { purpose, schema, system, prompt, model, start } = args;
   const fixture = await readFixtureJson(purpose);
   const parsed = schema.safeParse(fixture);

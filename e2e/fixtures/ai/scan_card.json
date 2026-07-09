@@ -1,6 +1,32 @@
 {
-  "title": "Placeholder receptkaart",
+  "title": "Romige kippastei met prei en tijm",
+  "description": "Een romige ovenschotel met kip, prei en een krokant bladerdeegdeksel, zoals op de HelloFresh-kaart.",
+  "type": "kip",
+  "timeMin": 40,
+  "difficulty": "gemiddeld",
   "cardServings": 2,
-  "issues": [],
-  "note": "FAKE_AI placeholder fixture (docs/workpackages/WP-05 §5) — het echte cardExtractionSchema landt in WP-08 (docs/PROMPTS.md §3); dit bestand bewijst alleen de FAKE_AI-doorgeefroute."
+  "steps": [
+    "Verwarm de oven voor op 200°C.",
+    "Snijd de prei in ringen en de kipfilet in blokjes.",
+    "Bak de kip rondom bruin en voeg de prei toe, bak 5 minuten mee.",
+    "Roer de kookroom en tijm erdoor en breng op smaak met peper en zout.",
+    "Schep het mengsel in een ovenschaal, leg het bladerdeeg erop en bak 20 minuten goudbruin in de oven."
+  ],
+  "ingredients": [
+    { "display": "Kipfilet", "amount": 300, "unit": "g", "category": "vis", "productPreference": "fresh", "pantry": false },
+    { "display": "Prei", "amount": 1, "unit": "stuks", "category": "groenten", "pantry": false },
+    { "display": "Kookroom", "amount": 200, "unit": "ml", "category": "zuivel", "productPreference": "fresh", "pantry": false },
+    { "display": "Bladerdeeg", "amount": 1, "unit": "rol", "category": "granen", "pantry": false },
+    { "display": "Verse tijm", "amount": 1, "unit": "bos", "category": "kruiden", "pantry": false },
+    { "display": "Zout", "amount": 1, "unit": "tl", "category": "overig", "pantry": true }
+  ],
+  "issues": ["Bereidingstijd was gedeeltelijk onleesbaar door een koffievlek op de kaart; 40 minuten is een schatting."],
+  "confidence": {
+    "title": "high",
+    "type": "high",
+    "difficulty": "high",
+    "cardServings": "high",
+    "timeMin": "low",
+    "ingredients[3].amount": "medium"
+  }
 }

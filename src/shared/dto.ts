@@ -103,3 +103,16 @@ export interface PlanDto {
 // Plan API request Zod schemas + DTO types live in src/shared/plans.ts; re-exported
 // here for the same reason as PublicSettingsDto/RecipeDetailDto above.
 export type { ApproveMealInput, GeneratePlanInput, ReplaceMealInput } from './plans';
+
+// Card-scan DTOs + Zod schemas live in src/shared/scans.ts (WP-08); re-exported here
+// for the same reason. Scans never carry secrets either.
+export type {
+  CardScanDto,
+  ExtractAllResultDto,
+  PairScansInput,
+  ScanApproveInput,
+  ScanApproveResultDto,
+  ScanBoardDto,
+  ScanImageDto,
+  StoredCardExtractionDto,
+} from './scans';

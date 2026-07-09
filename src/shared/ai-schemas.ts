@@ -3,11 +3,12 @@
 //
 // `planSchema`/`replaceSchema` (docs/PROMPTS.md §1-2, docs/workpackages/WP-06-planner-v2.md
 // §2) land here now that the weekplan work package owns the exact field shapes.
-// `cardExtractionSchema`/`validateProductSchema` (docs/PROMPTS.md §3-4) still land in
-// WP-08, once that work package owns those field shapes.
 //
 // `validateProductSchema` (docs/PROMPTS.md §4, docs/workpackages/WP-10-basket-
 // optimizer.md §2) lands here now that the basket-optimizer work package owns it.
+//
+// `cardExtractionSchema` (docs/PROMPTS.md §3, docs/workpackages/WP-08-card-scanning.md)
+// lands here now that the card-scanning work package owns it.
 //
 // `pingSchema` is a REAL, exercised-in-tests schema: it proves the generic plumbing
 // (callStructured's retry-on-invalid loop, the FAKE_AI fixture path, the per-provider
@@ -129,3 +130,50 @@ export const validateProductSchema = z.object({
 });
 
 export type ValidateProductResult = z.infer<typeof validateProductSchema>;
+
+// --- HelloFresh card extraction (purpose: scan_card, vision) — docs/PROMPTS.md §3 ---
+//
+// The extraction is ALWAYS routed through the human review UI (WP-08) before it ever
+// becomes a recipe — never auto-approved — so scalar fields the model couldn't read are
+// modeled as nullable ("Onleesbare velden krijgen null en een notitie in issues") rather
+// than forcing a guess. `ingredients` reuses `aiIngredientSchema` (same shape the planner
+// produces) so recipeService/scaleIngredients don't need a second ingredient type.
+
+export const cardFieldConfidenceSchema = z.enum(['high', 'medium', 'low']);
+export type CardFieldConfidence = z.infer<typeof cardFieldConfidenceSchema>;
+
+export const cardExtractionSchema = z.object({
+  title: z.string().min(1).max(200).nullable(),
+  description: z.string().max(2000).default(''),
+  type: (z.enum(RECIPE_TYPES as [string, ...string[]]) as z.ZodType<RecipeType>).nullable(),
+  timeMin: z.number().int().min(1).max(600).nullable(),
+  difficulty: (z.enum(RECIPE_DIFFICULTIES as [string, ...string[]]) as z.ZodType<Difficulty>).nullable(),
+  // Number of servings the printed amounts on the card are FOR (docs/PROMPTS.md §3:
+  // "cardServings: voor hoeveel personen de kaarthoeveelheden gelden"). scanService
+  // rescales every ingredient amount from this to the household's servings_base in
+  // code — the LLM never does that arithmetic (.cursorrules hard rule).
+  cardServings: z.number().int().min(1).max(20),
+  steps: z.array(z.string().min(1).max(2000)).default([]),
+  ingredients: z.array(aiIngredientSchema).default([]),
+  // Free-text notes about unreadable/ambiguous fields (docs/PROMPTS.md §3).
+  issues: z.array(z.string().min(1).max(500)).default([]),
+  // Per-field confidence, keyed by a dotted/bracket path into this object (e.g.
+  // "title", "timeMin", "ingredients[2].amount") — the review UI (WP-08) visually
+  // flags anything not "high" with a warning border/icon.
+  confidence: z.record(z.string(), cardFieldConfidenceSchema).default({}),
+});
+
+export type CardExtraction = z.infer<typeof cardExtractionSchema>;
+
+/**
+ * Shape persisted in `card_scans.extraction_json` (scanService.extractScan): the raw
+ * `CardExtraction` above, but with `ingredients` already rescaled from `cardServings` to
+ * `servingsBase` (the household's default serving count) in code — never by the LLM
+ * (.cursorrules hard rule). Re-validated on every read (jsonb columns are untyped at the
+ * DB level) so a hand-edited or pre-migration row can never silently corrupt the review UI.
+ */
+export const storedCardExtractionSchema = cardExtractionSchema.extend({
+  servingsBase: z.number().int().min(1).max(12),
+});
+
+export type StoredCardExtraction = z.infer<typeof storedCardExtractionSchema>;

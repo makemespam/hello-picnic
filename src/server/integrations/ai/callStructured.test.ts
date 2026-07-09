@@ -152,11 +152,34 @@ describe('callStructured — model resolution', () => {
   });
 
   it('throws AiConfigError for a purpose with no override and no registry default', async () => {
-    await expect(callStructured({ purpose: 'scan_card', schema: pingSchema, system: 's', prompt: 'p' })).rejects.toBeInstanceOf(
+    // `image` is the one purpose still with zero registry entries (WP-07 fixes this) —
+    // `scan_card` now resolves to a provisional default (WP-08 deviation, see
+    // models.ts), covered separately below.
+    await expect(callStructured({ purpose: 'image', schema: pingSchema, system: 's', prompt: 'p' })).rejects.toBeInstanceOf(
       AiConfigError
     );
     expect(mockedGenerateObject).not.toHaveBeenCalled();
     expect(await getDb().select().from(llmCalls)).toHaveLength(0);
+  });
+
+  it('resolves scan_card to its registry default (WP-08 deviation: doc-verified default wired without a live eval)', async () => {
+    process.env.GEMINI_API_KEY = 'test-gemini-key-not-real';
+    mockedGenerateObject.mockResolvedValueOnce({
+      object: { pong: true, message: 'ok' },
+      usage: usage(10, 2),
+      finishReason: 'stop',
+      warnings: undefined,
+      request: {},
+      response: { id: 'r', timestamp: new Date(), modelId: 'gemini-3.5-flash' },
+      providerMetadata: undefined,
+      reasoning: undefined,
+      toJsonResponse: () => new Response(),
+    });
+
+    await callStructured({ purpose: 'scan_card', schema: pingSchema, system: 's', prompt: 'p' });
+
+    const rows = await getDb().select().from(llmCalls);
+    expect(rows[0]).toMatchObject({ purpose: 'scan_card', provider: 'google', model: 'gemini-3.5-flash', ok: true });
   });
 
   it('throws AiConfigError and logs a ledger row when no API key is configured', async () => {
@@ -169,6 +192,61 @@ describe('callStructured — model resolution', () => {
     const rows = await getDb().select().from(llmCalls);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ purpose: 'plan', provider: 'anthropic', ok: false });
+  });
+});
+
+describe('callStructured — vision (images param)', () => {
+  function resolvedOnce() {
+    mockedGenerateObject.mockResolvedValueOnce({
+      object: { pong: true, message: 'ok' },
+      usage: usage(10, 2),
+      finishReason: 'stop',
+      warnings: undefined,
+      request: {},
+      response: { id: 'r', timestamp: new Date(), modelId: 'claude-haiku-4-5-20251001' },
+      providerMetadata: undefined,
+      reasoning: undefined,
+      toJsonResponse: () => new Response(),
+    });
+  }
+
+  it('maps images to a single multimodal user message, leaving `prompt` unset', async () => {
+    resolvedOnce();
+
+    await callStructured({
+      purpose: 'validate_product',
+      schema: pingSchema,
+      system: 's',
+      prompt: 'Lees deze kaart.',
+      modelOverride: 'claude-haiku-4-5-20251001',
+      images: [
+        { mimeType: 'image/webp', base64: 'Zm9v' },
+        { mimeType: 'image/webp', base64: 'YmFy' },
+      ],
+    });
+
+    const args = mockedGenerateObject.mock.calls[0]?.[0];
+    expect(args?.prompt).toBeUndefined();
+    expect(args?.messages).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Lees deze kaart.' },
+          { type: 'file', mediaType: 'image/webp', data: 'Zm9v' },
+          { type: 'file', mediaType: 'image/webp', data: 'YmFy' },
+        ],
+      },
+    ]);
+  });
+
+  it('uses plain `prompt` (not `messages`) when no images are given — existing text-only call sites unaffected', async () => {
+    resolvedOnce();
+
+    await callStructured({ purpose: 'validate_product', schema: pingSchema, system: 's', prompt: 'p', modelOverride: 'claude-haiku-4-5-20251001' });
+
+    const args = mockedGenerateObject.mock.calls[0]?.[0];
+    expect(args?.prompt).toBe('p');
+    expect(args?.messages).toBeUndefined();
   });
 });
 

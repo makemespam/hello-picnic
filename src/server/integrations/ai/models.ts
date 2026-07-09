@@ -4,13 +4,19 @@
 // WP-03 stub (docs/workpackages/WP-03-auth-settings-secrets-ledger.md §5: "stub
 // registry now, completed in WP-05"): only entries with a fully verified $/MTok
 // price pair from docs/PROMPTS.md §7 (web-verified 2026-07-11) are registered.
-// `scan_card` and `image` purposes intentionally have ZERO candidates here — the
-// doc names line/preview candidates (gemini-3.5-flash, Nano Banana 2, gpt-image-1.5,
-// Imagen 4, gpt-5.4-mini) but explicitly defers fixing a priced default until the
-// WP-08 Dutch-OCR eval and WP-07 photo taste-test. Never guess a price: an
-// unverified number silently corrupts the cost ledger, an empty dropdown does not.
-// WP-05 re-verifies every id+price against live provider docs before adding entries
-// for those two purposes and stamps a fresh `verifiedOn`.
+// `image` intentionally has ZERO candidates here — WP-07's 5-dish taste test fixes
+// that default. Never guess a price: an unverified number silently corrupts the cost
+// ledger, an empty dropdown does not.
+//
+// `scan_card` DEVIATION (WP-08): docs/workpackages/WP-08-card-scanning.md §7 calls for
+// a live model-eval mini-task — run the extraction prompt on real card photos with 2
+// candidate models and compare Dutch-OCR field accuracy before picking the default.
+// This sandbox has no real provider API keys (see the builder task's environment
+// notes), so that live eval could not be run. The eval PLAN is documented in
+// docs/workpackages/WP-08-card-scanning.md's PR (owner runs it at deploy time,
+// swapping the default below if a candidate wins); in the meantime this wires up the
+// doc-stated, already-verified default (docs/PROMPTS.md §7, verifiedOn 2026-07-11) so
+// scan_card is functional end-to-end instead of permanently config-erroring.
 
 import type { AiPurpose } from '@/shared/labels';
 
@@ -101,11 +107,13 @@ export const AI_MODELS: AiModel[] = [
 
 // Owner-overridable per purpose in settings (docs/ARCHITECTURE.md §5); this is only
 // the built-in fallback when no override is stored. Purposes with no verified
-// candidate yet are omitted on purpose — see file header.
+// candidate yet are omitted on purpose — see file header. `image` stays omitted until
+// WP-07's taste test; `scan_card` is wired provisionally — see the header deviation note.
 export const DEFAULT_MODEL_BY_PURPOSE: Partial<Record<AiPurpose, string>> = {
   plan: 'claude-sonnet-5',
   replace: 'claude-sonnet-5',
   validate_product: 'claude-haiku-4-5-20251001',
+  scan_card: 'gemini-3.5-flash',
   suggest: 'deepseek-v4-flash',
 };
 

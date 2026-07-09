@@ -35,9 +35,15 @@ describe('AI model registry (docs/ARCHITECTURE.md §5: "the ONLY model registry"
   });
 
   it('getDefaultModelForPurpose returns undefined for purposes with no verified candidate yet', () => {
-    // scan_card/image intentionally have zero registry entries in the WP-03 stub —
-    // see models.ts header comment. WP-05 completes this.
-    expect(getDefaultModelForPurpose('scan_card')).toBeUndefined();
+    // `image` intentionally has zero registry entries — see models.ts header comment.
+    // WP-07's photo taste test completes this. `scan_card` now has a provisional
+    // default (WP-08 deviation, same header comment) and is covered separately below.
     expect(getDefaultModelForPurpose('image')).toBeUndefined();
+  });
+
+  it('getDefaultModelForPurpose resolves scan_card to the WP-08 provisional default', () => {
+    const model = getDefaultModelForPurpose('scan_card');
+    expect(model?.id).toBe('gemini-3.5-flash');
+    expect(model?.purposes).toContain('scan_card');
   });
 });

@@ -38,28 +38,45 @@ export interface SaveRecipeImageInput {
   buffer: Buffer;
 }
 
+interface StoredDerivatives {
+  baseKey: string;
+  width: number;
+  height: number;
+}
+
 /**
- * Derives 640w/1280w/blur webp variants of an uploaded/generated photo, writes them
- * through the StorageAdapter, and records one `images` row (recipeService then points
- * `recipes.heroImageId` at it — see recipeService.attachPhoto).
+ * Derives 640w/1280w/blur webp variants of an uploaded/generated photo and writes them
+ * through the StorageAdapter — the shared sharp pipeline behind both
+ * `saveRecipeImage` (recipe photos) and `saveScanPhoto` (WP-08 card-scan uploads, which
+ * have no `recipeId` yet). `.rotate()` with no args auto-orients from EXIF (then strips
+ * it) before resizing — phone camera photos (card scans especially) are routinely
+ * captured sideways/upside-down relative to their EXIF-reported orientation.
  */
-export async function saveRecipeImage({ recipeId, kind, buffer }: SaveRecipeImageInput): Promise<ImageRow> {
+async function storeDerivatives(buffer: Buffer): Promise<StoredDerivatives> {
   if (buffer.byteLength > MAX_UPLOAD_BYTES) throw new ImageTooLargeError();
 
-  const source = sharp(buffer, { failOn: 'error' });
-  const metadata = await source.metadata().catch(() => {
-    throw new InvalidImageError();
-  });
-  if (!metadata.width || !metadata.height) throw new InvalidImageError();
+  const metadata = await sharp(buffer, { failOn: 'error' })
+    .metadata()
+    .catch(() => {
+      throw new InvalidImageError();
+    });
+  // `metadata().autoOrient` reports the EXIF-corrected (post-rotation) dimensions —
+  // plain `width`/`height` deliberately ignore orientation (sharp's own docs), which
+  // would otherwise record swapped dimensions for the 90°/270°-rotated photos phone
+  // cameras routinely produce (card scans especially).
+  const width = metadata.autoOrient?.width ?? metadata.width;
+  const height = metadata.autoOrient?.height ?? metadata.height;
+  if (!width || !height) throw new InvalidImageError();
 
   const [w640, w1280, blur] = await Promise.all([
-    sharp(buffer).resize({ width: 640, withoutEnlargement: true }).webp({ quality: 78 }).toBuffer(),
-    sharp(buffer).resize({ width: 1280, withoutEnlargement: true }).webp({ quality: 82 }).toBuffer(),
+    // `.rotate()` with no args auto-orients from EXIF, then strips it, before resizing.
+    sharp(buffer).rotate().resize({ width: 640, withoutEnlargement: true }).webp({ quality: 78 }).toBuffer(),
+    sharp(buffer).rotate().resize({ width: 1280, withoutEnlargement: true }).webp({ quality: 82 }).toBuffer(),
     // ~24px wide blur-up placeholder, inlined as a data URI (see blurDataUrlFor below).
-    sharp(buffer).resize({ width: 24 }).blur(2).webp({ quality: 40 }).toBuffer(),
+    sharp(buffer).rotate().resize({ width: 24 }).blur(2).webp({ quality: 40 }).toBuffer(),
   ]);
 
-  const baseKey = `recipe-${recipeId}-${randomUUID()}`;
+  const baseKey = `img-${randomUUID()}`;
   const storage = getStorageAdapter();
   await Promise.all([
     storage.put(deriveImageKey(baseKey, '640w'), w640),
@@ -67,21 +84,51 @@ export async function saveRecipeImage({ recipeId, kind, buffer }: SaveRecipeImag
     storage.put(deriveImageKey(baseKey, 'blur'), blur),
   ]);
 
+  return { baseKey, width, height };
+}
+
+/**
+ * Derives 640w/1280w/blur webp variants of an uploaded/generated photo, writes them
+ * through the StorageAdapter, and records one `images` row (recipeService then points
+ * `recipes.heroImageId` at it — see recipeService.attachPhoto).
+ */
+export async function saveRecipeImage({ recipeId, kind, buffer }: SaveRecipeImageInput): Promise<ImageRow> {
+  const { baseKey, width, height } = await storeDerivatives(buffer);
+
   const db = getDb();
   const [row] = await db
     .insert(images)
-    .values({
-      kind,
-      filePath: baseKey,
-      mime: 'image/webp',
-      width: metadata.width,
-      height: metadata.height,
-      recipeId,
-    })
+    .values({ kind, filePath: baseKey, mime: 'image/webp', width, height, recipeId })
     .returning();
 
   if (!row) throw new Error('insert into images returned no row');
   return row;
+}
+
+/**
+ * Stores one uploaded HelloFresh card photo (WP-08, docs/workpackages/WP-08-card-
+ * scanning.md §4) before a scan is paired/extracted — so before any recipe exists to
+ * attach it to. `recipeId` starts null; `attachImageToRecipe` below links the front
+ * photo to its recipe once a scan is approved (reusing the same derivatives instead of
+ * re-uploading).
+ */
+export async function saveScanPhoto(buffer: Buffer): Promise<ImageRow> {
+  const { baseKey, width, height } = await storeDerivatives(buffer);
+
+  const db = getDb();
+  const [row] = await db
+    .insert(images)
+    .values({ kind: 'card', filePath: baseKey, mime: 'image/webp', width, height, recipeId: null })
+    .returning();
+
+  if (!row) throw new Error('insert into images returned no row');
+  return row;
+}
+
+/** Links an existing image row to a recipe (WP-08 approveScan: reuses the scan's front photo as the new recipe's hero instead of re-deriving/re-storing it). */
+export async function attachImageToRecipe(imageId: number, recipeId: number): Promise<void> {
+  const db = getDb();
+  await db.update(images).set({ recipeId }).where(eq(images.id, imageId));
 }
 
 /** Deletes every derivative for an image plus its `images` row. */

@@ -15,7 +15,7 @@ const VARIANT_MIME: Record<ImageVariant, string> = {
 
 /**
  * Derives the storage key for one size variant of a logical image. `baseKey` is the
- * `images.filePath` column value — a per-image key prefix (e.g. `recipe-12-<uuid>`)
+ * `images.filePath` column value — a per-image key prefix (e.g. `img-<uuid>`)
  * that every derivative for that image lives under.
  */
 export function deriveImageKey(baseKey: string, variant: ImageVariant): string {

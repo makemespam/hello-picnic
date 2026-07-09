@@ -42,6 +42,19 @@ export type RecipeStatus = 'draft' | 'active' | 'archived';
 
 export const RECIPE_STATUSES: RecipeStatus[] = ['draft', 'active', 'archived'];
 
+// Card-scan lifecycle (WP-08, docs/ARCHITECTURE.md §3 `card_scans.status`).
+export type CardScanStatus = 'uploaded' | 'extracted' | 'needs_review' | 'approved' | 'rejected';
+
+export const CARD_SCAN_STATUS_LABEL: Record<CardScanStatus, string> = {
+  uploaded: 'Geüpload',
+  extracted: 'Verwerkt',
+  needs_review: 'Controleren',
+  approved: 'Goedgekeurd',
+  rejected: 'Afgewezen',
+};
+
+export const CARD_SCAN_STATUSES = Object.keys(CARD_SCAN_STATUS_LABEL) as CardScanStatus[];
+
 // Ingredient vocabulary ported from legacy/src/lib/types.ts (IngredientCategory,
 // ProductPreference) — WP-04 recipe_ingredients columns (docs/ARCHITECTURE.md §3).
 export type IngredientCategory = 'groenten' | 'fruit' | 'zuivel' | 'vis' | 'kruiden' | 'granen' | 'peulvruchten' | 'overig';

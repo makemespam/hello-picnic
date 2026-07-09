@@ -29,10 +29,14 @@ const API_ROUTES = [
   // exists (scripts/seed-dev.ts seeds exactly one plan) — a 404 body is fine too, the
   // crawl only cares that no response ever contains a sentinel.
   '/api/shopping/1',
+  // WP-08: the scan board never carries a secret either, but it's a new response shape
+  // worth crawling on principle.
+  '/api/scans',
 ];
 
-// Every shell page (src/shared/labels.ts NAV_ITEMS) plus the settings and kosten screens.
-const PAGES = ['/', '/plan', '/recepten', '/recepten/nieuw', '/boodschappen', '/meer', '/meer/instellingen', '/meer/kosten'];
+// Every shell page (src/shared/labels.ts NAV_ITEMS) plus the settings, kosten and
+// scannen screens.
+const PAGES = ['/', '/plan', '/recepten', '/recepten/nieuw', '/boodschappen', '/meer', '/meer/instellingen', '/meer/kosten', '/meer/scannen'];
 
 test.describe('secret-leak crawl', () => {
   // "Logs in as the seeded user" is satisfied by the shared storageState set up by
