@@ -1,6 +1,6 @@
 // Product-selection heuristics, ported verbatim (same scoring behavior) from
-// legacy/src/lib/picnic-product-selection.ts and the package-quantity parser from
-// legacy/src/components/ShoppingList.tsx's `parsePackageAmount` (docs/workpackages/
+// v1's lib/picnic-product-selection.ts and the package-quantity parser from
+// v1's components/ShoppingList.tsx's `parsePackageAmount` (docs/workpackages/
 // WP-09-picnic-client-v2.md §3 "package-quantity parsing (2x500g, 1,5 kg, …)"). Pure
 // functions only — no fetch, no DB — so they're trivially unit-testable and reusable by
 // WP-10's basket optimizer (docs/ARCHITECTURE.md §7).
@@ -251,7 +251,7 @@ export function rankPicnicArticles(
     .map(({ article }) => article);
 }
 
-// --- Package-quantity parsing (legacy/src/components/ShoppingList.tsx) --------------
+// --- Package-quantity parsing (v1's components/ShoppingList.tsx) --------------
 
 export type PackageUnit = 'g' | 'ml' | 'stuks';
 

@@ -63,3 +63,13 @@ On `main` additionally: docker build + push `ghcr.io/<owner>/hello-picnic:latest
 ## 7. Manual test round per phase
 
 Each phase ends with the owner running the app with **real** keys on the VPS (or locally) against a written manual script in the phase's final WP ("Handmatige proefronde" section): real Picnic login incl. 2FA, one real plan generation per provider, one real card scan. Findings become regression tests.
+
+## 8. Known issue (2026-07-11, architect)
+
+The e2e suite is deterministic per SUITE START (scripts/reset-e2e.ts + workers:1), but
+mobile-project spec files run before desktop-project files and mutate shared household
+state mid-run (created recipes, approved scans, finalized plans). Most specs are
+resilient; occasionally 1–2 desktop specs (recepten detail, agenda) hit leftover
+mid-run state. CI absorbs this with retries:1. Proper fix (next session): per-spec-file
+state namespacing or a mid-run reset hook between projects. Tracked as the first item
+of the post-deploy hardening round.

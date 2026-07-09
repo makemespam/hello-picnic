@@ -1,5 +1,5 @@
 // Picnic promotions parsing (docs/ARCHITECTURE.md §6, docs/workpackages/WP-09-picnic-
-// client-v2.md §1/§4). Unlike legacy's promotions route (legacy/src/app/api/picnic/
+// client-v2.md §1/§4). Unlike v1's promotions route (v1's app/api/picnic/
 // promotions/route.ts), which only ever extracted name+price, this walks the same
 // nested "page" tree as search but also reads each article's `decorators` array for
 // Picnic's own discount metadata: a `PRICE` decorator carries the original vs. promo
@@ -116,7 +116,7 @@ export function parsePromotions(data: unknown): PicnicPromotion[] {
   return promotions;
 }
 
-// Caps the promotions list to keep the planner prompt manageable (legacy/src/app/api/
+// Caps the promotions list to keep the planner prompt manageable (v1's app/api/
 // picnic/promotions/route.ts precedent: `.slice(0, 30)`).
 const MAX_PROMOTIONS = 30;
 

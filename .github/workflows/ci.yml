@@ -46,6 +46,28 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
       - run: npm run e2e
+      # Optional Lighthouse gate (docs/workpackages/WP-14-android-parity-release.md §6):
+      # performance budget (>=80) on Login/Vandaag/Weekplan/Recepten + a manifest-based
+      # installability check (Lighthouse's own `pwa` category was removed upstream in
+      # v10+ — see scripts/lighthouse-check.ts's header comment). Reuses the session
+      # cookie e2e/.auth/user.json just produced above and the Chromium
+      # `playwright install` just fetched. continue-on-error: this must never block a
+      # merge — there's no guarantee every environment this CI runs in can launch
+      # headless Chrome the same way twice in a row.
+      - name: Build for Lighthouse
+        run: npm run build
+        continue-on-error: true
+      - name: Lighthouse (optional, non-blocking)
+        continue-on-error: true
+        run: |
+          npm run start &
+          SERVER_PID=$!
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/api/health && break
+            sleep 2
+          done
+          npm run lighthouse
+          kill $SERVER_PID
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4

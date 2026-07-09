@@ -4,13 +4,13 @@
 // MD5 login helper, rate limiting and 429 retry live in exactly one place.
 //
 // `PICNIC_API_BASE`/`PICNIC_API_VERSION` come from env (.env.example) — never a
-// hardcoded `api/17` (that was v1's fragility: legacy/src/lib/picnic.ts hardcoded the
+// hardcoded `api/17` (that was v1's fragility: v1's lib/picnic.ts hardcoded the
 // full base URL including the version segment).
 import { createHash } from 'crypto';
 import { fakePicnicFetch, isFakePicnic } from './fakePicnic';
 import { PicnicRateLimited, PicnicUnknown } from './errors';
 
-// Device impersonation headers straight from legacy/src/lib/picnic.ts — Picnic's API
+// Device impersonation headers straight from v1's lib/picnic.ts — Picnic's API
 // requires these to accept requests at all. Not user secrets (no credentials in here),
 // so they're safe to keep as plain constants rather than settings.
 export const PICNIC_DEVICE_HEADERS: Readonly<Record<string, string>> = {
@@ -21,7 +21,7 @@ export const PICNIC_DEVICE_HEADERS: Readonly<Record<string, string>> = {
   'x-picnic-did': '3C417201548B2E3B',
 };
 
-/** Picnic's login endpoint wants the password MD5-hashed (legacy/src/lib/picnic.ts). */
+/** Picnic's login endpoint wants the password MD5-hashed (v1's lib/picnic.ts). */
 export function md5(value: string): string {
   return createHash('md5').update(value, 'utf8').digest('hex');
 }

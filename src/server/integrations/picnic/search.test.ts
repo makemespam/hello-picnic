@@ -1,7 +1,7 @@
 // API/integration layer (docs/TESTING.md §1) for searchArticles (writes/reads
 // integration_tokens via auth.ts's withPicnicAuth against real Postgres); unit-style
-// for the pure extractArticles/cleanSearchTerm ported from legacy/src/lib/picnic.ts and
-// legacy/src/app/api/picnic/search/route.ts. fetch is mocked throughout — no live Picnic
+// for the pure extractArticles/cleanSearchTerm ported from v1's lib/picnic.ts and
+// v1's app/api/picnic/search/route.ts. fetch is mocked throughout — no live Picnic
 // call.
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

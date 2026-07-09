@@ -127,7 +127,7 @@ export interface PackPlan {
 
 // docs/workpackages/WP-10-basket-optimizer.md §3 "overshoot warning when supplied > 2x needed".
 const OVERSHOOT_WARNING_RATIO = 2;
-// legacy/src/components/ShoppingList.tsx precedent: a single pack covering ≥ 80% of the
+// v1's components/ShoppingList.tsx precedent: a single pack covering ≥ 80% of the
 // need is "close enough" — recipes are approximate, nobody wants half a courgette left
 // over from buying 2 packs just to cover the last 15%.
 const UNDERSUPPLY_FLOOR_RATIO = 0.8;

@@ -1,5 +1,5 @@
-// Unit layer (docs/TESTING.md §1) — pure heuristics ported from legacy/src/lib/picnic-
-// product-selection.ts and legacy/src/components/ShoppingList.tsx's parsePackageAmount
+// Unit layer (docs/TESTING.md §1) — pure heuristics ported from v1's lib/picnic-
+// product-selection.ts and v1's components/ShoppingList.tsx's parsePackageAmount
 // (docs/workpackages/WP-09-picnic-client-v2.md §3 "Legacy heuristics ported with >= 90%
 // line coverage on those pure functions"). No fetch, no DB — every branch of
 // scoreArticle/parsePackageQuantity is exercised directly.

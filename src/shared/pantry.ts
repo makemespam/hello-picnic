@@ -1,5 +1,5 @@
 // Default HelloFresh-style pantry: things assumed to always be in the house.
-// Ported verbatim from legacy/src/data/pantry.ts (docs/workpackages/WP-03 §7) —
+// Ported verbatim from v1's data/pantry.ts (docs/workpackages/WP-03 §7) —
 // seeds the household settings' pantry checklist; households customize it in
 // Instellingen from there on (stored as a plain string[] of keys in `settings`).
 export const DEFAULT_PANTRY: Record<string, string> = {

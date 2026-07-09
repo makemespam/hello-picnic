@@ -4,7 +4,7 @@
 // src/server/integrations/picnic/client.ts.
 //
 // BRING_API_KEY comes STRICTLY from env (docs/ARCHITECTURE.md §9.6, docs/workpackages/
-// WP-11 §1): v1 hardcoded the key as a string literal in legacy/src/lib/bring.ts, which
+// WP-11 §1): v1 hardcoded the key as a string literal in v1's lib/bring.ts, which
 // shipped it to every client bundle. An env read can't be inlined into client JS (Next
 // only inlines NEXT_PUBLIC_* vars), and `envKeyGuard.test.ts` in this directory is the
 // automated regression guard: no v1 key literal anywhere in src/, BRING_API_KEY
@@ -33,7 +33,7 @@ function baseHeaders(): Record<string, string> {
   };
 }
 
-/** Auth header for an already-logged-in request (legacy/src/lib/bring.ts authHeaders). */
+/** Auth header for an already-logged-in request (v1's lib/bring.ts authHeaders). */
 export function authHeaders(accessToken: string, userUuid?: string, publicUserUuid?: string): Record<string, string> {
   return {
     Authorization: `Bearer ${accessToken}`,
@@ -42,7 +42,7 @@ export function authHeaders(accessToken: string, userUuid?: string, publicUserUu
   };
 }
 
-/** Random per-change id Bring's item-mutation API requires (legacy/src/lib/bring.ts addBringItem). */
+/** Random per-change id Bring's item-mutation API requires (v1's lib/bring.ts addBringItem). */
 export function newChangeUuid(): string {
   return randomUUID();
 }

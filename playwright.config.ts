@@ -21,7 +21,14 @@ const authFile = path.join(__dirname, 'e2e/.auth/user.json');
 
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: true,
+  // Single worker: the stateful specs (plan finalize, scans, boodschappen, agenda,
+  // suggesties) all mutate the ONE shared household in the dev database; two workers
+  // running different spec files concurrently race those mutations nondeterministically
+  // (observed: 0-6 failures varying per run once WP-14's specs shifted the schedule).
+  // Serial execution costs ~3 extra minutes and buys determinism — scripts/reset-e2e.ts
+  // guarantees a clean starting state per suite run.
+  workers: 1,
+  fullyParallel: false,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: {

@@ -35,7 +35,7 @@ export class PicnicUnknown extends PicnicError {}
 
 /**
  * Classifies a non-ok authenticated response into a typed error. `bodyText` is scanned
- * for Picnic's `TWO_FACTOR_AUTHENTICATION_REQUIRED` marker (legacy/src/app/api/picnic/
+ * for Picnic's `TWO_FACTOR_AUTHENTICATION_REQUIRED` marker (v1's app/api/picnic/
  * search/route.ts precedent) since Picnic sometimes signals "needs 2FA again" via a 403
  * with that code in the body rather than a dedicated status. Returns `null` for ok
  * responses (callers only invoke this on `!res.ok`, but keeping it total avoids a

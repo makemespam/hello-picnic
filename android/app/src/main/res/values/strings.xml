@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Hello Picnic</string>
+    <string name="title_activity_main">Hello Picnic</string>
+    <string name="package_name">nl.hellopicnic.app</string>
+    <string name="custom_url_scheme">nl.hellopicnic.app</string>
+    <!-- Deep-link host (docs/workpackages/WP-14 §1 / deploy/ANDROID.md "Deep links"):
+         replace with the real VPS hostname before building a signed APK, e.g.
+         "hellopicnic.example.com". Must match capacitor.config.ts's CAP_SERVER_URL host
+         and be a domain you control, since App Links verification (autoVerify="true" on
+         the intent-filter below) fetches https://<host>/.well-known/assetlinks.json. -->
+    <string name="app_domain" translatable="false">REPLACE_WITH_DOMAIN.example.com</string>
+</resources>

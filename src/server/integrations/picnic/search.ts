@@ -1,12 +1,12 @@
 // Picnic product search (docs/ARCHITECTURE.md §6, docs/workpackages/WP-09-picnic-
 // client-v2.md §1/§3). `extractArticles` and `cleanSearchTerm` are ported verbatim from
-// legacy/src/lib/picnic.ts and legacy/src/app/api/picnic/search/route.ts as pure
+// v1's lib/picnic.ts and v1's app/api/picnic/search/route.ts as pure
 // functions; `searchArticles` wires them to a real (or FAKE_PICNIC) authenticated call.
 import { authHeaders, picnicRequest } from './client';
 import { withPicnicAuth } from './auth';
 import type { PicnicArticle } from './selection';
 
-// --- extractArticles (legacy/src/lib/picnic.ts) --------------------------------------
+// --- extractArticles (v1's lib/picnic.ts) --------------------------------------
 // Picnic's search/promotion responses are deeply nested "page" trees (sections ->
 // rows -> tiles -> ...); this flattens any tree into the SELLING_UNIT/SINGLE_ARTICLE/
 // PRODUCT nodes it contains, deduped by id.
@@ -77,7 +77,7 @@ export function extractArticles(data: unknown): PicnicArticle[] {
   return articles;
 }
 
-// --- cleanSearchTerm (legacy/src/app/api/picnic/search/route.ts) --------------------
+// --- cleanSearchTerm (v1's app/api/picnic/search/route.ts) --------------------
 // Strips parentheticals/prep-state words and swaps a few ingredient names for the term
 // Picnic's own search actually indexes well (e.g. "wortel" -> "waspeen").
 

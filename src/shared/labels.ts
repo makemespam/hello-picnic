@@ -55,7 +55,7 @@ export const CARD_SCAN_STATUS_LABEL: Record<CardScanStatus, string> = {
 
 export const CARD_SCAN_STATUSES = Object.keys(CARD_SCAN_STATUS_LABEL) as CardScanStatus[];
 
-// Ingredient vocabulary ported from legacy/src/lib/types.ts (IngredientCategory,
+// Ingredient vocabulary ported from v1's lib/types.ts (IngredientCategory,
 // ProductPreference) — WP-04 recipe_ingredients columns (docs/ARCHITECTURE.md §3).
 export type IngredientCategory = 'groenten' | 'fruit' | 'zuivel' | 'vis' | 'kruiden' | 'granen' | 'peulvruchten' | 'overig';
 
@@ -100,7 +100,7 @@ export const TYPE_BADGE_CLASSES: Record<RecipeType, string> = {
 export const RECIPE_TYPES = Object.keys(TYPE_LABEL) as RecipeType[];
 
 // Meal style tags (household settings' style multi-select), ported from
-// legacy/src/lib/types.ts MealStylePreference — a direction, not a hard filter
+// v1's lib/types.ts MealStylePreference — a direction, not a hard filter
 // (docs/PROMPTS.md §1 "Stijlvoorkeuren (richting, geen keurslijf)").
 export type MealStyle = 'luxe' | 'gezin' | 'fit' | 'makkelijk' | 'snel' | 'budget' | 'wereldkeuken' | 'comfort';
 

@@ -11,7 +11,9 @@ playwright-report/
 e2e/__screenshots__/
 e2e/.auth/
 .local/
-legacy/node_modules/
-legacy/.next/
-legacy/desktop-dist/
-legacy/dist/
+
+# Android (Capacitor) — deploy/ANDROID.md. Gradle build outputs live under android/ and
+# are already covered by android/.gitignore; these root-level patterns are belt-and-braces
+# so a signing keystore can never be committed from any working directory.
+*.jks
+*.keystore

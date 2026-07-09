@@ -30,7 +30,7 @@ export interface PicnicConnectResult {
 /**
  * POST /api/picnic/connect (docs/workpackages/WP-09 §3): resolves email/password from
  * the request body, falling back to the stored settings (settingsService pattern shared
- * with legacy/src/app/api/picnic/login/route.ts). A body-supplied email/password is
+ * with v1's app/api/picnic/login/route.ts). A body-supplied email/password is
  * persisted as the new stored value so a later silent reconnect (WP-10 shopping flows)
  * can reuse it — same tri-state secret semantics as PUT /api/settings.
  */
@@ -49,7 +49,7 @@ export async function connect(input: PicnicConnectInput): Promise<PicnicConnectR
   await Promise.all(persist);
 
   const result = await login(email, password);
-  // Legacy UX (legacy/src/app/instellingen/page.tsx `loginPicnic`): trigger the SMS/app
+  // Legacy UX (v1's app/instellingen/page.tsx `loginPicnic`): trigger the SMS/app
   // code immediately so the settings screen can go straight to "enter the code" instead
   // of a separate "request code" step.
   if (result.secondFactorRequired) await requestTwoFactorCode();

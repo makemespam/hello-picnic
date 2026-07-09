@@ -1,5 +1,5 @@
 // Bring lists + item add (docs/workpackages/WP-11-bring-v2.md §1), ported from
-// legacy/src/lib/bring.ts getBringLists/addBringItem but routed through withBringAuth()
+// v1's lib/bring.ts getBringLists/addBringItem but routed through withBringAuth()
 // so a stale access token is transparently refreshed once (then typed BringAuthExpired).
 import { z } from 'zod';
 import { authHeaders, bringRequest, newChangeUuid } from './client';
@@ -12,7 +12,7 @@ export interface BringList {
 }
 
 // Zod at the external-API boundary (.cursorrules): Bring's lists payload has shipped
-// under both `listUuid`/`name` and legacy-ish variants — accept the superset legacy's
+// under both `listUuid`/`name` and legacy-ish variants — accept the superset v1's
 // pickString handled, then normalize.
 const rawListSchema = z
   .object({
@@ -49,7 +49,7 @@ export async function fetchLists(): Promise<BringList[]> {
 /**
  * PUT /v2/bringlists/:listUuid/items — adds one purchase row (name + Dutch quantity
  * spec string, e.g. "1,5 kg"). Bring's change-batch contract straight from
- * legacy/src/lib/bring.ts addBringItem. Adding the same itemId again is an upsert on
+ * v1's lib/bring.ts addBringItem. Adding the same itemId again is an upsert on
  * Bring's side (the spec is replaced, no duplicate row) — which is what makes the
  * shoppingService send idempotent at the Bring end too.
  */

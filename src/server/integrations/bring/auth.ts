@@ -6,9 +6,9 @@
 // `BringAuthExpired`.
 //
 // Unlike Picnic, Bring has no 2FA and its API hands back a `refresh_token` alongside
-// the access token at login (legacy/src/lib/bring.ts's `BringLoginResult`) — v1 never
+// the access token at login (v1's lib/bring.ts's `BringLoginResult`) — v1 never
 // actually used it (it just re-logged in with the stored password on a 401, see
-// legacy/src/app/api/bring/items/route.ts), but the real Bring API supports a proper
+// v1's app/api/bring/items/route.ts), but the real Bring API supports a proper
 // OAuth-style refresh grant on the same /v2/bringauth endpoint, which this client uses
 // instead so a stored password isn't needed for every retry.
 import { eq } from 'drizzle-orm';
@@ -98,7 +98,7 @@ function pickString(value: unknown, keys: string[]): string {
   return '';
 }
 
-/** POST /v2/bringauth (form-encoded) — Bring's own login contract (legacy/src/lib/bring.ts loginBring). */
+/** POST /v2/bringauth (form-encoded) — Bring's own login contract (v1's lib/bring.ts loginBring). */
 export async function login(email: string, password: string): Promise<BringLoginResult> {
   const res = await bringRequest('/v2/bringauth', { formBody: { email, password } });
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;

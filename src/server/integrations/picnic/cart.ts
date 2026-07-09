@@ -1,5 +1,5 @@
 // Picnic cart operations (docs/ARCHITECTURE.md §6, docs/workpackages/WP-09-picnic-
-// client-v2.md §1). Thin typed wrappers over legacy/src/app/api/picnic/cart/route.ts's
+// client-v2.md §1). Thin typed wrappers over v1's app/api/picnic/cart/route.ts's
 // three operations — the actual "resolve items -> add to cart" orchestration is WP-10's
 // basket optimizer (docs/ARCHITECTURE.md §7); this module only exposes the raw calls.
 import { authHeaders, picnicRequest } from './client';

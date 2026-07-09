@@ -82,7 +82,7 @@ export interface PicnicLoginResult {
   secondFactorRequired: boolean;
 }
 
-/** POST /user/login (legacy/src/app/api/picnic/login/route.ts). Persists a pending_2fa or connected token row. */
+/** POST /user/login (v1's app/api/picnic/login/route.ts). Persists a pending_2fa or connected token row. */
 export async function login(email: string, password: string): Promise<PicnicLoginResult> {
   const res = await picnicRequest('/user/login', {
     method: 'POST',
@@ -105,7 +105,7 @@ export async function login(email: string, password: string): Promise<PicnicLogi
   return { secondFactorRequired };
 }
 
-/** POST /user/2fa/generate — triggers Picnic to send the SMS/app code (legacy: called right after a secondFactorRequired login). */
+/** POST /user/2fa/generate — triggers Picnic to send the SMS/app code (v1: called right after a secondFactorRequired login). */
 export async function requestTwoFactorCode(): Promise<void> {
   const token = await readTokenRow();
   if (!token || token.status !== 'pending_2fa') {

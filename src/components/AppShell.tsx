@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { BottomNav } from './BottomNav';
+import { CapacitorBackButton } from './CapacitorBackButton';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 
@@ -10,6 +11,7 @@ import { TopBar } from './TopBar';
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen bg-background">
+      <CapacitorBackButton />
       <Sidebar />
       <div className="flex min-h-screen flex-1 flex-col">
         <TopBar />

@@ -47,7 +47,7 @@ export class ShoppingServiceError extends Error {
 
 type ShoppingItemRow = typeof shoppingItems.$inferSelect;
 
-// --- normalizeIngredientKey (ported from legacy/src/app/plan/page.tsx) --------------
+// --- normalizeIngredientKey (ported from v1's app/plan/page.tsx) --------------
 
 /** Stable aggregation key for an ingredient display name, folding a couple of Dutch
  * synonym pairs (docs/workpackages/WP-10-basket-optimizer.md §1) so "ei"/"eieren" and

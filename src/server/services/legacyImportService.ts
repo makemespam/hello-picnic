@@ -1,7 +1,7 @@
 // Legacy recipe-library import (docs/workpackages/WP-04-recipe-domain-migration.md §5).
-// Reads the v1 app's `recipe-library.json` (format: legacy/src/lib/recipe-library-store.ts
-// + legacy/src/lib/types.ts `RecipeLibraryItem`/`Recipe`) and creates v2 `recipes` rows
-// via recipeService — never imports anything from legacy/ itself (read-only reference
+// Reads the v1 app's `recipe-library.json` (format: v1's lib/recipe-library-store.ts
+// + v1's lib/types.ts `RecipeLibraryItem`/`Recipe`) and creates v2 `recipes` rows
+// via recipeService — never imports anything from the old v1 source tree itself (read-only reference
 // per .cursorrules), only mirrors its on-disk JSON shape as local types.
 //
 // Idempotent: matches on the legacy `libraryId`, stored in `recipes.source_ref`
@@ -11,7 +11,7 @@ import type { Difficulty, IngredientCategory, ProductPreference, RecipeType } fr
 import { recipeCreateSchema, type RecipeCreateInput } from '@/shared/recipes';
 import { createRecipe, findRecipeBySourceRef, updateRecipe } from './recipeService';
 
-// --- Legacy JSON shape (mirrors legacy/src/lib/types.ts) ---------------------------
+// --- Legacy JSON shape (mirrors v1's lib/types.ts) ---------------------------
 
 type LegacyRecipeType = 'vegan' | 'vegetarisch' | 'vega' | 'vis' | 'rund' | 'kip' | 'varken';
 type LegacyDifficulty = 'easy' | 'medium' | 'hard';
