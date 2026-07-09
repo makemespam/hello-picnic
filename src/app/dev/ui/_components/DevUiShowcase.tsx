@@ -26,6 +26,19 @@ import type { RecipeType } from '@/shared/labels';
 
 const RECIPE_TYPES: RecipeType[] = ['vegan', 'vegetarisch', 'vis', 'kip', 'rund', 'varken'];
 
+// Inline SVG data URI so the "loaded photo" state doesn't depend on an external host
+// (e2e/CI runs offline — docs/TESTING.md §2 — and this showcase should too).
+const DEMO_PHOTO =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480">' +
+      '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">' +
+      '<stop offset="0" stop-color="#F58A07"/><stop offset="1" stop-color="#067A46"/>' +
+      '</linearGradient></defs>' +
+      '<rect width="640" height="480" fill="url(#g)"/>' +
+      '</svg>'
+  );
+
 const SAMPLE_RECIPE: RecipeCardData = {
   id: 'demo-1',
   title: 'Orzosalade met halloumi en geroosterde paprika',
@@ -96,16 +109,16 @@ export function DevUiShowcase() {
       <Section title="PhotoFrame">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <PhotoFrame src={null} alt="Zonder foto (fallback)" aspect="4:3" className="rounded-lg" />
-          <PhotoFrame src="https://picsum.photos/seed/hellopicnic1/640/480" alt="Voorbeeldgerecht" aspect="4:3" className="rounded-lg" />
-          <PhotoFrame src="https://picsum.photos/seed/hellopicnic2/640/640" alt="Voorbeeldgerecht vierkant" aspect="1:1" className="rounded-lg" />
-          <PhotoFrame src="https://picsum.photos/seed/hellopicnic3/960/540" alt="Voorbeeldgerecht breed" aspect="16:9" className="rounded-lg" />
+          <PhotoFrame src={DEMO_PHOTO} alt="Voorbeeldgerecht" aspect="4:3" className="rounded-lg" />
+          <PhotoFrame src={DEMO_PHOTO} alt="Voorbeeldgerecht vierkant" aspect="1:1" className="rounded-lg" />
+          <PhotoFrame src={DEMO_PHOTO} alt="Voorbeeldgerecht breed" aspect="16:9" className="rounded-lg" />
         </div>
       </Section>
 
       <Section title="RecipeCard">
         <div className="grid max-w-xs grid-cols-1 gap-4 sm:max-w-none sm:grid-cols-3">
           <RecipeCard recipe={SAMPLE_RECIPE} />
-          <RecipeCard recipe={{ ...SAMPLE_RECIPE, id: 'demo-2', type: 'kip', rating: 5 }} href="/recepten" />
+          <RecipeCard recipe={{ ...SAMPLE_RECIPE, id: 'demo-2', type: 'kip', rating: 5, photoUrl: DEMO_PHOTO }} href="/recepten" />
           <RecipeCard recipe={{ ...SAMPLE_RECIPE, id: 'demo-3', type: 'vis', rating: 0, title: 'Kort' }} />
         </div>
       </Section>
