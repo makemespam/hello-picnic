@@ -11,6 +11,21 @@ step below that needs Android Studio/`gradlew`/a keystore is an owner deploy-tim
 that has not been run yet. Treat this file as a script, not a confirmation that it works
 — run it once for real and note any deviations here.
 
+
+## Snelste route: APK laten bouwen door GitHub Actions (geen Android Studio nodig)
+
+1. GitHub → **Actions** → workflow **"Android APK"** → *Run workflow*.
+2. Vul je publieke VPS-URL in (bijv. `https://eten.jouwdomein.nl`) en start.
+3. Na ±5 minuten: open de run → download het artifact **hello-picnic-apk**.
+4. Zet `app-debug.apk` op beide telefoons (bijv. via Google Drive of USB) en tik erop
+   om te installeren. Sta eenmalig "Installeren uit onbekende bron" toe.
+5. Klaar. De app-inhoud komt live van de VPS, dus gewone updates vereisen géén nieuwe
+   APK — alleen bij een gewijzigde domeinnaam of Capacitor-pluginwijziging bouw je
+   opnieuw (zelfde knop).
+
+De rest van dit document beschrijft de lokale route met Android Studio (nodig als je
+ooit een release-gesigneerde APK of Play Store-distributie wilt).
+
 ## 0. How the shell works
 
 `capacitor.config.ts` sets `server.url` from the `CAP_SERVER_URL` env var at
