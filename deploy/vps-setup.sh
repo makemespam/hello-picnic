@@ -122,7 +122,8 @@ for WIE in "jouw account" "account van je partner"; do
   [ -z "${EMAIL:-}" ] && continue
   read -r -p "Naam: " NAAM
   read -r -s -p "Wachtwoord: " WW; echo
-  docker compose --profile tools run --rm tools npx tsx scripts/create-user.ts "$EMAIL" "$NAAM" "$WW"
+  docker compose --profile tools run --rm tools npx tsx scripts/create-user.ts "$EMAIL" "$NAAM" "$WW" \
+    || echo "Account aanmaken mislukt (zie melding hierboven) — probeer straks handmatig: docker compose --profile tools run --rm tools npx tsx scripts/create-user.ts <email> <naam> <wachtwoord>"
 done
 
 say "Gezondheidscheck"
