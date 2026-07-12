@@ -11,6 +11,9 @@ services:
     networks:
       - default
       - shared_infra
+      # Same docker network as the existing vibe-caddy-1 reverse proxy, so its
+      # `reverse_proxy deploy-app-1:3000` site block keeps resolving after restarts.
+      - vibe_default
 
   # One-off jobs (migraties, gebruikersbeheer): docker compose --profile tools run --rm tools <cmd>
   tools:
@@ -40,4 +43,6 @@ volumes:
 
 networks:
   shared_infra:
+    external: true
+  vibe_default:
     external: true
