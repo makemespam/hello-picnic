@@ -1,5 +1,10 @@
 # Deploy — Leaseweb VPS
 
+> **Snelste route:** clone de repo op de VPS en draai `bash deploy/vps-setup.sh` —
+> het script doet alle stappen hieronder interactief, detecteert een al-draaiende
+> reverse proxy (boekhoudapp) op poort 80/443, en print dan de proxy-snippet die je
+> nodig hebt. De handmatige stappen hieronder blijven staan als referentie.
+
 ## Eerste keer
 
 1. **Gedeelde Postgres** (eenmalig, als die er nog niet staat):
