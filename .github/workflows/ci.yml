@@ -26,6 +26,10 @@ jobs:
       DATABASE_URL: postgres://hellopicnic:hellopicnic@localhost:5432/hellopicnic
       FAKE_AI: '1'
       TZ: Europe/Amsterdam
+      # Test-only secrets: locally these come from the gitignored .env; CI has no .env,
+      # and the crypto/settings/auth suites refuse to run without them.
+      APP_SECRET: ci-only-app-secret-not-used-anywhere-real-0123
+      AUTH_SECRET: ci-only-auth-secret-not-used-anywhere-real-0123
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
