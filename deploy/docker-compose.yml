@@ -12,6 +12,16 @@ services:
       - default
       - shared_infra
 
+  # One-off jobs (migraties, gebruikersbeheer): docker compose --profile tools run --rm tools <cmd>
+  tools:
+    build:
+      context: ..
+      target: tools
+    profiles: ['tools']
+    env_file: .env
+    networks:
+      - shared_infra
+
   caddy:
     image: caddy:2
     restart: unless-stopped

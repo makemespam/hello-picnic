@@ -10,6 +10,12 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN rm -rf legacy && npm run build
 
+# Tools target: full node_modules + sources, for one-off jobs the slim standalone
+# runner can't do (db:migrate needs drizzle-kit, create-user needs tsx). Used via
+# `docker compose --profile tools run --rm tools <cmd>` — never runs continuously.
+FROM build AS tools
+CMD ["bash"]
+
 FROM node:22-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production

@@ -114,7 +114,7 @@ else
 fi
 
 say "Migraties"
-docker compose exec app npm run db:migrate
+docker compose --profile tools run --rm tools npm run db:migrate
 
 say "Gezinsaccounts"
 for WIE in "jouw account" "account van je partner"; do
@@ -122,7 +122,7 @@ for WIE in "jouw account" "account van je partner"; do
   [ -z "${EMAIL:-}" ] && continue
   read -r -p "Naam: " NAAM
   read -r -s -p "Wachtwoord: " WW; echo
-  docker compose exec app npx tsx scripts/create-user.ts "$EMAIL" "$NAAM" "$WW"
+  docker compose --profile tools run --rm tools npx tsx scripts/create-user.ts "$EMAIL" "$NAAM" "$WW"
 done
 
 say "Gezondheidscheck"
