@@ -14,7 +14,10 @@ import { pingSchema } from '@/shared/ai-schemas';
 const PROVIDERS = ['anthropic', 'openai', 'google', 'deepseek'] as const satisfies readonly AiProvider[];
 const bodySchema = z.object({ provider: z.enum(PROVIDERS) });
 
-const TEST_TIMEOUT_MS = 15_000;
+// 30s, not 15s: Gemini's first structured-output call after idle regularly needs
+// 15-25s cold-start (observed on the VPS), which made a healthy key look broken.
+// Real app calls (plan/scan) already get callStructured's 60s ceiling.
+const TEST_TIMEOUT_MS = 30_000;
 
 export async function POST(request: Request) {
   let body: unknown;
