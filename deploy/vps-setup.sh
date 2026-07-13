@@ -119,6 +119,11 @@ else
 fi
 
 say "Migraties"
+# Het tools-image expliciet herbouwen: `docker compose run` hergebruikt anders het
+# image van de EERSTE keer, met de migratiemap van toen — de app-code is dan nieuwer
+# dan het databaseschema en pagina's crashen op ontbrekende kolommen (owner-hit
+# 2026-07-13: weekplan/recepten kapot na een update zonder verse tools-build).
+docker compose --profile tools build tools
 docker compose --profile tools run --rm tools npm run db:migrate
 
 say "Gezinsaccounts"

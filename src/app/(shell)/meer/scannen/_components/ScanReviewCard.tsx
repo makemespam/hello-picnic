@@ -56,6 +56,58 @@ function confidenceWarnClass(isLow: boolean): string {
   return isLow ? 'border-warning ring-1 ring-warning/40' : '';
 }
 
+// --- Zod-issues -> leesbare Nederlandse regels (owner feedback 2026-07-13: "Opslaan is
+// niet gelukt. Controleer de velden" zei niet WELKE velden — de approve-route stuurt de
+// issues al mee, dit vertaalt ze) ---------------------------------------------------
+
+interface ApiIssue {
+  code?: string;
+  path?: (string | number)[];
+  type?: string;
+  message?: string;
+}
+
+const ISSUE_FIELD_LABEL: Record<string, string> = {
+  title: 'Titel',
+  description: 'Omschrijving',
+  type: 'Type',
+  timeMin: 'Bereidingstijd',
+  difficulty: 'Moeilijkheid',
+  servingsBase: 'Porties',
+  steps: 'Bereidingsstappen',
+  ingredients: 'Ingrediënten',
+  display: 'naam',
+  nameKey: 'naam',
+  amount: 'hoeveelheid',
+  unit: 'eenheid',
+  category: 'categorie',
+};
+
+function issueFieldLabel(path: (string | number)[]): string {
+  if (path[0] === 'ingredients' && typeof path[1] === 'number') {
+    const sub = typeof path[2] === 'string' ? ` — ${ISSUE_FIELD_LABEL[path[2]] ?? path[2]}` : '';
+    return `Ingrediënt ${path[1] + 1}${sub}`;
+  }
+  if (path[0] === 'steps' && typeof path[1] === 'number') return `Stap ${path[1] + 1}`;
+  const head = String(path[0] ?? '');
+  return ISSUE_FIELD_LABEL[head] ?? head;
+}
+
+function issueProblem(issue: ApiIssue): string {
+  if (issue.code === 'too_small') {
+    if (issue.type === 'number') return 'moet groter dan 0 zijn';
+    if (issue.type === 'array') return 'er is er minstens één nodig';
+    return 'mag niet leeg zijn';
+  }
+  if (issue.code === 'too_big') return 'is te lang/te groot';
+  if (issue.code === 'invalid_type') return 'is geen geldige waarde (leeg of geen getal?)';
+  return issue.message ?? 'is ongeldig';
+}
+
+function describeIssues(issues: ApiIssue[]): string[] {
+  return issues.slice(0, 6).map((issue) => `${issueFieldLabel(issue.path ?? [])}: ${issueProblem(issue)}`);
+}
+
 export function ScanReviewCard({ scan, onApproved, onRejected, onRetried }: ScanReviewCardProps) {
   const extraction = scan.extraction;
 
@@ -134,14 +186,26 @@ export function ScanReviewCard({ scan, onApproved, onRejected, onRetried }: Scan
       confirmDuplicate,
     };
 
-    const { ok, body } = await fetchJson<{ status: 'approved' | 'duplicate'; recipeId?: number; duplicate?: { title: string; similarity: number } }>(
-      `/api/scans/${scan.id}/approve`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
-    );
+    const { ok, body } = await fetchJson<{
+      status: 'approved' | 'duplicate';
+      recipeId?: number;
+      duplicate?: { title: string; similarity: number };
+      error?: string;
+      issues?: ApiIssue[];
+    }>(`/api/scans/${scan.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
 
     if (!ok) {
       setStatus('error');
-      setErrorMessage('Opslaan is niet gelukt. Controleer de velden en probeer het opnieuw.');
+      // Naam WELKE velden mis zijn (de route stuurt de Zod-issues mee) in plaats van
+      // alleen "controleer de velden" — owner feedback 2026-07-13. Een dienstfout
+      // (bijv. "Deze scan is al afgehandeld.") is al Nederlands en gaat door zoals-is.
+      if (body.issues && body.issues.length > 0) {
+        setErrorMessage(`Opslaan is niet gelukt:\n${describeIssues(body.issues).join('\n')}`);
+      } else if (body.error && !['invalid_input', 'invalid_json', 'invalid_id'].includes(body.error)) {
+        setErrorMessage(`Opslaan is niet gelukt: ${body.error}`);
+      } else {
+        setErrorMessage('Opslaan is niet gelukt. Controleer de velden en probeer het opnieuw.');
+      }
       return;
     }
 
@@ -281,30 +345,34 @@ export function ScanReviewCard({ scan, onApproved, onRejected, onRetried }: Scan
 
         <div className="flex flex-col gap-2">
           <h3 className="text-sm font-semibold text-ink">Ingrediënten</h3>
+          {/* Vaste smalle kolommen voor aantal/eenheid en minmax(0,1fr) voor de naam:
+              met auto-kolommen bepaalden de LABELS ("Hoeveelheid"/"Eenheid") de
+              kolombreedte, waardoor de naam op een telefoon tot ±2 tekens werd
+              geplet (owner feedback 2026-07-13). Kortere labels + min-w-0 zodat de
+              naam alle resterende ruimte krijgt. */}
           {ingredients.map((row) => (
             <div
               key={row.key}
               className={cn(
-                'grid grid-cols-[1fr_auto_auto] items-end gap-2 rounded-md border border-transparent p-1.5',
+                'grid grid-cols-[minmax(0,1fr)_4.5rem_4rem] items-end gap-2 rounded-md border border-transparent p-1.5',
                 row.lowConfidence && 'border-warning ring-1 ring-warning/40'
               )}
             >
-              <Field label="Naam" htmlFor={`ing-display-${row.key}`}>
+              <Field label="Naam" htmlFor={`ing-display-${row.key}`} className="min-w-0">
                 <Input id={`ing-display-${row.key}`} value={row.display} onChange={(event) => updateIngredient(row.key, { display: event.target.value })} />
               </Field>
-              <Field label="Hoeveelheid" htmlFor={`ing-amount-${row.key}`}>
+              <Field label="Aantal" htmlFor={`ing-amount-${row.key}`}>
                 <Input
                   id={`ing-amount-${row.key}`}
                   type="number"
                   min={0}
                   step={0.1}
-                  className="w-20"
                   value={row.amount}
                   onChange={(event) => updateIngredient(row.key, { amount: Number(event.target.value) })}
                 />
               </Field>
               <Field label="Eenheid" htmlFor={`ing-unit-${row.key}`}>
-                <Input id={`ing-unit-${row.key}`} className="w-16" value={row.unit} onChange={(event) => updateIngredient(row.key, { unit: event.target.value })} />
+                <Input id={`ing-unit-${row.key}`} value={row.unit} onChange={(event) => updateIngredient(row.key, { unit: event.target.value })} />
               </Field>
               {row.lowConfidence && <p className="col-span-3 -mt-1 flex items-center gap-1 text-xs text-warning">⚠️ Lage betrouwbaarheid — controleer.</p>}
               <Field label="Categorie" htmlFor={`ing-cat-${row.key}`} className="col-span-2">
@@ -328,7 +396,11 @@ export function ScanReviewCard({ scan, onApproved, onRejected, onRetried }: Scan
           ))}
         </div>
 
-        {status === 'error' && errorMessage && <Alert variant="danger">{errorMessage}</Alert>}
+        {status === 'error' && errorMessage && (
+          <Alert variant="danger">
+            <span className="whitespace-pre-line">{errorMessage}</span>
+          </Alert>
+        )}
 
         <div className="flex justify-end gap-2 border-t border-ink/10 pt-3">
           <button

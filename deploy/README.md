@@ -48,6 +48,7 @@ Handmatig kan ook, maar dan altijd mét de migratie-stap:
 ```bash
 cd deploy
 docker compose pull && docker compose up -d          # of: docker build -t ghcr.io/makemespam/hello-picnic:latest .. && docker compose up -d
+docker compose --profile tools build tools           # verplicht: anders draait een OUD tools-image de migraties van toen
 docker compose --profile tools run --rm tools npm run db:migrate
 ```
 
