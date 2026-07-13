@@ -117,6 +117,7 @@ say "Migraties"
 docker compose --profile tools run --rm tools npm run db:migrate
 
 say "Gezinsaccounts"
+echo "(Bestaande accounts blijven altijd staan — dit is alleen voor NIEUWE accounts. Enter = overslaan.)"
 for WIE in "jouw account" "account van je partner"; do
   read -r -p "E-mail voor ${WIE} (Enter = overslaan): " EMAIL || true
   [ -z "${EMAIL:-}" ] && continue
