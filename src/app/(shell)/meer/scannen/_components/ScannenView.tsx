@@ -137,10 +137,15 @@ export function ScannenView({ initialBoard }: { initialBoard: ScanBoardDto }) {
       .filter((scan) => scan.status !== 'approved' && scan.status !== 'rejected')
       .map((scan): ProgressItemData => {
         if (scan.status === 'uploaded') {
+          // Without `processing` an 'uploaded' scan is NOT being worked on — showing a
+          // spinner-ish state made a stalled/never-started extraction look busy forever
+          // (owner feedback 2026-07-13). Tell the user what to do instead.
+          const isActive = processing && active && scan.id === active.id;
           return {
             id: String(scan.id),
             label: `Kaart #${scan.id}`,
-            status: active && scan.id === active.id ? 'active' : 'pending',
+            status: isActive ? 'active' : 'pending',
+            detail: processing ? undefined : 'Wacht op verwerking — tik "Alles verwerken"',
           };
         }
         if (scan.status === 'extracted' && scan.error) {
@@ -159,17 +164,36 @@ export function ScannenView({ initialBoard }: { initialBoard: ScanBoardDto }) {
       <PageHeader title="Scannen" description="Upload foto's van je HelloFresh-kaarten, koppel voor- en achterkant, en verwerk ze in één keer." />
 
       <section className="flex flex-col gap-3 rounded-lg border border-ink/10 bg-surface p-4 shadow-sm">
-        <Field label="Foto's van receptkaarten" htmlFor="scan-upload-input" hint="Kies of maak meerdere foto's tegelijk (voor- en achterkant).">
-          <input
-            ref={fileInputRef}
-            id="scan-upload-input"
-            type="file"
-            accept="image/*"
-            capture="environment"
-            multiple
-            onChange={(event) => handleUpload(event.target.files)}
-            className="block w-full text-sm text-ink-muted file:mr-3 file:h-11 file:rounded-full file:border-0 file:bg-primary file:px-5 file:text-sm file:font-semibold file:text-white file:hover:bg-primary-hover"
-          />
+        <Field label="Foto's van receptkaarten" htmlFor="scan-upload-input" hint="Meerdere foto's tegelijk kan (voor- en achterkant).">
+          {/* Two explicit entry points: `capture` forces the camera on Android and hides
+              the gallery entirely, so the gallery input must NOT carry it (owner feedback
+              2026-07-13). Both feed the same upload handler. */}
+          <div className="flex flex-wrap gap-2">
+            <label className="inline-flex h-11 cursor-pointer items-center rounded-full bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover">
+              🖼️ Kies uit galerij
+              <input
+                ref={fileInputRef}
+                id="scan-upload-input"
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(event) => handleUpload(event.target.files)}
+                className="sr-only"
+              />
+            </label>
+            <label className="inline-flex h-11 cursor-pointer items-center rounded-full border border-primary px-5 text-sm font-semibold text-primary hover:bg-primary-soft">
+              📷 Foto maken
+              <input
+                id="scan-camera-input"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                multiple
+                onChange={(event) => handleUpload(event.target.files)}
+                className="sr-only"
+              />
+            </label>
+          </div>
         </Field>
         {uploading && <p className="text-sm text-ink-muted">Bezig met uploaden…</p>}
         {uploadError && <p className="text-sm text-danger">{uploadError}</p>}
