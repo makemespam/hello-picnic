@@ -24,7 +24,13 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: postgres://hellopicnic:hellopicnic@localhost:5432/hellopicnic
+      # ALL four fixture modes (docs/TESTING.md §2: CI never talks to live providers).
+      # Locally these live in the gitignored .env; the shopping/agenda/bring suites
+      # depend on them just as much as the AI suites depend on FAKE_AI.
       FAKE_AI: '1'
+      FAKE_PICNIC: '1'
+      FAKE_BRING: '1'
+      FAKE_GOOGLE: '1'
       TZ: Europe/Amsterdam
       # Test-only secrets: locally these come from the gitignored .env; CI has no .env,
       # and the crypto/settings/auth suites refuse to run without them.
