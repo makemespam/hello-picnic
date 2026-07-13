@@ -238,7 +238,7 @@ export function ScannenView({ initialBoard }: { initialBoard: ScanBoardDto }) {
         <section className="flex flex-col gap-4">
           <h3 className="text-base font-bold text-ink">Controleren</h3>
           {reviewable.map((scan) => (
-            <ScanReviewCard key={scan.id} scan={scan} onApproved={handleApproved} onRejected={handleRejected} />
+            <ScanReviewCard key={scan.id} scan={scan} onApproved={handleApproved} onRejected={handleRejected} onRetried={() => void refreshBoard()} />
           ))}
         </section>
       )}

@@ -42,6 +42,8 @@ export interface ScanReviewCardProps {
   scan: CardScanDto;
   onApproved: (scanId: number) => void;
   onRejected: (scanId: number) => void;
+  /** Called after a successful re-extraction request so the parent can refresh the board. */
+  onRetried?: () => void;
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; status: number; body: T }> {
@@ -54,10 +56,27 @@ function confidenceWarnClass(isLow: boolean): string {
   return isLow ? 'border-warning ring-1 ring-warning/40' : '';
 }
 
-export function ScanReviewCard({ scan, onApproved, onRejected }: ScanReviewCardProps) {
+export function ScanReviewCard({ scan, onApproved, onRejected, onRetried }: ScanReviewCardProps) {
   const extraction = scan.extraction;
 
   const [title, setTitle] = useState(extraction?.title ?? '');
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
+
+  // Transient provider failures ("model experiencing high demand") deserve a one-tap
+  // retry against the existing POST /api/scans/:id/extract endpoint instead of the old
+  // advice to re-photograph the card (owner feedback 2026-07-13).
+  async function handleRetryExtraction() {
+    setRetrying(true);
+    setRetryError(null);
+    const { ok } = await fetchJson<unknown>(`/api/scans/${scan.id}/extract`, { method: 'POST' });
+    setRetrying(false);
+    if (!ok) {
+      setRetryError('Opnieuw verwerken is niet gelukt — probeer het over een paar minuten nog eens.');
+      return;
+    }
+    onRetried?.();
+  }
   const [description, setDescription] = useState(extraction?.description ?? '');
   const [type, setType] = useState<RecipeType>((extraction?.type as RecipeType) ?? 'vegetarisch');
   const [timeMin, setTimeMin] = useState(extraction?.timeMin ?? 30);
@@ -154,7 +173,19 @@ export function ScanReviewCard({ scan, onApproved, onRejected }: ScanReviewCardP
       <div className="flex flex-col gap-4">
         {scan.error && (
           <Alert variant="danger" title="Extractie mislukt">
-            {scan.error} Vul de velden handmatig in, of probeer opnieuw te scannen.
+            <p>{scan.error}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleRetryExtraction}
+                disabled={retrying}
+                className="inline-flex h-9 items-center rounded-full bg-danger px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {retrying ? 'Bezig…' : '🔄 Opnieuw verwerken'}
+              </button>
+              <span className="text-xs">of vul de velden hieronder handmatig in.</span>
+            </div>
+            {retryError && <p className="mt-1 text-xs">{retryError}</p>}
           </Alert>
         )}
         {extraction && extraction.issues.length > 0 && (

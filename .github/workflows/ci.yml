@@ -30,6 +30,11 @@ jobs:
       # and the crypto/settings/auth suites refuse to run without them.
       APP_SECRET: ci-only-app-secret-not-used-anywhere-real-0123
       AUTH_SECRET: ci-only-auth-secret-not-used-anywhere-real-0123
+      # Same story for the Picnic client config (shoppingService tests construct the
+      # client; fetch is always mocked). A .invalid host guarantees any accidental
+      # live call fails loudly instead of hitting the real Picnic API from CI.
+      PICNIC_API_BASE: https://picnic.ci-only.invalid/api
+      PICNIC_API_VERSION: '17'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
