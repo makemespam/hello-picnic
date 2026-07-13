@@ -6,6 +6,11 @@ services:
     image: ghcr.io/makemespam/hello-picnic:latest
     restart: unless-stopped
     env_file: .env
+    environment:
+      # Next standalone binds to $HOSTNAME; Docker sets that to the container name,
+      # which resolves to the FIRST network's IP only — the reverse proxy on the
+      # second network (vibe_default) then gets connection refused. Bind everything.
+      HOSTNAME: 0.0.0.0
     volumes:
       - hp_data:/data
     networks:
