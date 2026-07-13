@@ -29,6 +29,7 @@ import type { GeneratePlanInput, PicnicPromotion, PlanDto, PlanMealDto } from '@
 import { DEFAULT_PANTRY } from '@/shared/pantry';
 import { recipeCreateSchema, slugify, type RecipeCreateInput } from '@/shared/recipes';
 import type { HouseholdPrefs } from '@/shared/settings';
+import { queuePhotoForNewRecipe } from './imageGenService';
 import { getWeekPromotions } from './picnicService';
 import { createRecipe, getRecipe, recordRecipePlanned, updateRecipe } from './recipeService';
 import { computeBestMonthsForRecipe } from './seasonService';
@@ -181,6 +182,13 @@ async function persistAiRecipe(aiRecipe: AiRecipe): Promise<number> {
   // docs/workpackages/WP-13-proactive-suggestions.md §2: seasonality tag at recipe
   // create time — graceful skip on any AI error, never blocks plan generation.
   await computeBestMonthsForRecipe({ id: created.id, title: created.title, type: created.type, description: created.description });
+
+  // docs/workpackages/WP-07-photo-pipeline.md §5(a): fire-and-forget dish-photo
+  // generation for every freshly AI-generated recipe. queuePhotoForNewRecipe awaits
+  // only the quick `photoStatus: 'pending'` write (so a poller sees the shimmer state
+  // immediately) — the actual generation runs on a background sequential queue and
+  // NEVER blocks or fails plan generation, however it turns out.
+  await queuePhotoForNewRecipe(created.id);
 
   return created.id;
 }

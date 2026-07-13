@@ -63,7 +63,13 @@ export default async function VandaagPage() {
         href={`/recepten/${meal.recipe.id}`}
         className="block overflow-hidden rounded-lg border border-ink/10 bg-surface shadow-sm transition-shadow hover:shadow-md"
       >
-        <PhotoFrame src={meal.recipe.photoUrl} blurDataUrl={meal.recipe.blurDataUrl} alt={meal.recipe.title} aspect="16:9" />
+        <PhotoFrame
+          src={meal.recipe.photoUrl}
+          blurDataUrl={meal.recipe.blurDataUrl}
+          alt={meal.recipe.title}
+          aspect="16:9"
+          shimmer={meal.recipe.photoStatus === 'pending' || meal.recipe.photoStatus === 'generating'}
+        />
         <div className="flex flex-col gap-2 p-5">
           <RecipeTypeBadge type={meal.recipe.type} />
           <h2 className="text-2xl font-bold text-ink md:text-[30px]">{meal.recipe.title}</h2>

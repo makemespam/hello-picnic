@@ -21,6 +21,7 @@ import {
   INGREDIENT_CATEGORIES,
   PRODUCT_PREFERENCES,
   RECIPE_DIFFICULTIES,
+  RECIPE_PHOTO_STATUSES,
   RECIPE_SOURCES,
   RECIPE_STATUSES,
   RECIPE_TYPES,
@@ -29,6 +30,7 @@ import {
   type IngredientCategory,
   type MealStyle,
   type ProductPreference,
+  type RecipePhotoStatus,
   type RecipeSource,
   type RecipeStatus,
   type RecipeType,
@@ -66,6 +68,10 @@ export const productPreferenceEnum = pgEnum(
   PRODUCT_PREFERENCES as [ProductPreference, ...ProductPreference[]]
 );
 export const imageKindEnum = pgEnum('image_kind', ['card', 'generated', 'derived']);
+
+// WP-07 (docs/workpackages/WP-07-photo-pipeline.md §4): recipe dish-photo generation
+// lifecycle. Mirrors src/shared/labels.ts RECIPE_PHOTO_STATUSES (single source of truth).
+export const recipePhotoStatusEnum = pgEnum('recipe_photo_status', RECIPE_PHOTO_STATUSES as [RecipePhotoStatus, ...RecipePhotoStatus[]]);
 
 // Card-scan domain (WP-08, docs/ARCHITECTURE.md §3).
 export const cardScanStatusEnum = pgEnum('card_scan_status', CARD_SCAN_STATUSES as [CardScanStatus, ...CardScanStatus[]]);
@@ -171,6 +177,13 @@ export const recipes = pgTable(
     // Soft reference to images.id — see the comment on `images` above for why this
     // isn't a `.references()` foreign key.
     heroImageId: integer('hero_image_id'),
+    // WP-07 (docs/workpackages/WP-07-photo-pipeline.md §4): additive nullable column —
+    // never breaks a v1-deployed row (null = "not tracked by the generation pipeline",
+    // the same graceful-null pattern as `bestMonths` above). Drives the shimmer -> photo
+    // swap UI and the resumable /api/recipes/backfill-photos batch; the actual "does this
+    // recipe still need a photo" query condition is `heroImageId IS NULL`, this column is
+    // purely about in-flight/most-recent-attempt state for the UI and batch resumability.
+    photoStatus: recipePhotoStatusEnum('photo_status'),
     // Forward reference to `cardScans` (defined further down this file, after
     // `recipeIngredients`) — safe because `.references()` takes a callback that's only
     // invoked once the whole module has finished evaluating (same pattern as `images.

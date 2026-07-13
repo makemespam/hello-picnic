@@ -193,6 +193,17 @@ export async function getImageRowsByIds(ids: number[]): Promise<Map<number, Imag
   return new Map(rows.map((row) => [row.id, row]));
 }
 
+/**
+ * Every image row belonging to a recipe (WP-07, docs/workpackages/WP-07-photo-pipeline.md
+ * §3: card-vs-generated hero toggle). A `source: 'card'` recipe's scanned front photo and
+ * an on-demand AI alternative can coexist — this is how imageGenService/recipeService find
+ * "the" card photo and "the" generated photo for the toggle without a dedicated column.
+ */
+export async function getImagesForRecipe(recipeId: number): Promise<ImageRow[]> {
+  const db = getDb();
+  return db.select().from(images).where(eq(images.recipeId, recipeId)).orderBy(images.createdAt);
+}
+
 /** Same as blurDataUrlFor, but from an already-fetched row (batched list views). */
 export async function blurDataUrlFromRow(row: ImageRow | undefined): Promise<string | null> {
   if (!row) return null;

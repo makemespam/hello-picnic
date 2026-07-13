@@ -1,10 +1,6 @@
-import Link from 'next/link';
-import { EmptyState } from '@/components/EmptyState';
-import { PageHeader } from '@/components/PageHeader';
-import { RecipeCard } from '@/components/RecipeCard';
-import { listRecipes } from '@/server/services/recipeService';
+import { countMissingPhotos, listRecipes } from '@/server/services/recipeService';
 import { recipeQuerySchema } from '@/shared/recipes';
-import { ReceptenFilterBar } from './_components/ReceptenFilterBar';
+import { ReceptenLibraryView } from './_components/ReceptenLibraryView';
 
 interface ReceptenPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -13,68 +9,31 @@ interface ReceptenPageProps {
 // Server Component: reads the library via the service directly (docs/ARCHITECTURE.md
 // §1 "Services are unit-testable without HTTP"; same pattern as instellingen/page.tsx).
 // Filters are URL search params (see ReceptenFilterBar) so this page re-renders
-// server-side on every filter change — no client-side fetch duplicate of listRecipes().
+// server-side on every filter change; ReceptenLibraryView (client) then takes over for
+// the shimmer-poll + backfill action (docs/workpackages/WP-07-photo-pipeline.md §8) —
+// no client-side fetch duplicate of listRecipes() on first paint, just on later polls.
 export default async function ReceptenPage({ searchParams }: ReceptenPageProps) {
   const raw = await searchParams;
   const flat = Object.fromEntries(Object.entries(raw).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value]));
   const parsed = recipeQuerySchema.safeParse(flat);
   const query = parsed.success ? parsed.data : recipeQuerySchema.parse({});
 
-  const recipes = await listRecipes(query);
+  const [recipes, missingPhotoCount] = await Promise.all([listRecipes(query), countMissingPhotos()]);
   const hasActiveFilter = Boolean(query.type || query.text || query.minRating !== undefined || query.favorite !== undefined);
 
+  const queryString = new URLSearchParams(
+    Object.entries({ type: query.type, text: query.text, favorite: query.favorite?.toString(), sort: query.sort }).filter(
+      (entry): entry is [string, string] => entry[1] !== undefined
+    )
+  ).toString();
+
   return (
-    <div>
-      <PageHeader
-        title="Recepten"
-        description="Jullie bibliotheek — foto's van HelloFresh-kaarten en zelfgemaakte recepten."
-        action={
-          <div className="flex gap-2">
-            <Link
-              href="/meer/scannen"
-              className="inline-flex h-11 items-center justify-center rounded-full border border-ink/15 px-5 text-sm font-semibold text-ink hover:bg-ink/5"
-            >
-              Scan kaarten
-            </Link>
-            <Link
-              href="/recepten/nieuw"
-              className="inline-flex h-11 items-center justify-center rounded-full bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover"
-            >
-              + Nieuw recept
-            </Link>
-          </div>
-        }
-      />
-
-      <ReceptenFilterBar initialType={query.type} initialText={query.text} initialSort={query.sort} initialFavorite={query.favorite} />
-
-      {recipes.length === 0 ? (
-        hasActiveFilter ? (
-          <EmptyState
-            illustration="🔍"
-            title="Geen recepten gevonden"
-            description="Probeer een andere zoekterm of een ander filter."
-          />
-        ) : (
-          <div className="flex flex-col items-center gap-3">
-            <EmptyState
-              illustration="📖"
-              title="Nog geen recepten"
-              description="Scan je HelloFresh-kaarten om je bibliotheek in één keer te vullen, of voeg een recept handmatig toe."
-              action={{ label: 'Scan kaarten', href: '/meer/scannen' }}
-            />
-            <Link href="/recepten/nieuw" className="text-sm font-semibold text-primary underline underline-offset-2">
-              Of voeg een recept handmatig toe
-            </Link>
-          </div>
-        )
-      ) : (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-          {recipes.map((recipe) => (
-            <RecipeCard key={recipe.id} recipe={recipe} href={`/recepten/${recipe.id}`} />
-          ))}
-        </div>
-      )}
-    </div>
+    <ReceptenLibraryView
+      initialRecipes={recipes}
+      queryString={queryString}
+      hasActiveFilter={hasActiveFilter}
+      initialMissingPhotoCount={missingPhotoCount}
+      filterBarProps={{ initialType: query.type, initialText: query.text, initialSort: query.sort, initialFavorite: query.favorite }}
+    />
   );
 }

@@ -50,6 +50,12 @@ const API_ROUTES = [
   // (a 401 "not connected" body is fine too — the crawl only cares about sentinels).
   '/api/bring/status',
   '/api/bring/lists',
+  // WP-07: dish-photo pipeline routes never carry a secret either, but they're new
+  // response shapes worth crawling on principle. POST-only routes 405 on GET — the
+  // crawl only cares that no response body ever contains a sentinel, a 405 is fine.
+  '/api/recipes/backfill-photos',
+  '/api/recipes/backfill-photos/stop',
+  '/api/recipes/1/photo',
 ];
 
 // Every shell page (src/shared/labels.ts NAV_ITEMS) plus the settings, kosten and

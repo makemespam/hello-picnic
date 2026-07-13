@@ -10,6 +10,7 @@ import {
   MEAL_STYLES,
   PRODUCT_PREFERENCES,
   RECIPE_DIFFICULTIES,
+  RECIPE_PHOTO_STATUSES,
   RECIPE_SOURCES,
   RECIPE_STATUSES,
   RECIPE_TYPES,
@@ -17,6 +18,7 @@ import {
   type IngredientCategory,
   type MealStyle,
   type ProductPreference,
+  type RecipePhotoStatus,
   type RecipeSource,
   type RecipeStatus,
   type RecipeType,
@@ -97,6 +99,11 @@ export const recipeQuerySchema = z.object({
     .optional(),
   status: (z.enum(RECIPE_STATUSES as [string, ...string[]]) as z.ZodType<RecipeStatus>).optional(),
   sort: recipeSortSchema.default('recent'),
+  // WP-07 (docs/workpackages/WP-07-photo-pipeline.md §6): lets the Recepten grid's live
+  // shimmer-poll narrow to just the recipes it needs to watch instead of re-fetching the
+  // whole (filtered) grid — flagged choice: reuses GET /api/recipes rather than a new
+  // dedicated status endpoint, same as the existing type/text/favorite filters.
+  photoStatus: (z.enum(RECIPE_PHOTO_STATUSES as [string, ...string[]]) as z.ZodType<RecipePhotoStatus>).optional(),
 });
 
 export type RecipeQuery = z.infer<typeof recipeQuerySchema>;
@@ -116,6 +123,25 @@ export interface RecipeListItemDto {
   source: RecipeSource;
   photoUrl: string | null;
   blurDataUrl: string | null;
+  /** WP-07 (docs/workpackages/WP-07-photo-pipeline.md §4): drives the shimmer -> photo swap. Null = not tracked by the generation pipeline. */
+  photoStatus: RecipePhotoStatus | null;
+}
+
+// --- Dish photo actions (WP-07, docs/workpackages/WP-07-photo-pipeline.md §6) ------
+// POST /api/recipes/:id/photo body: 'generate' (re)generates an AI photo (card recipes
+// keep their scan hero — see recipeService/imageGenService "never auto-overwrite");
+// 'toggle' switches an already-generated card recipe between its scan photo and its AI
+// alternative.
+export const recipePhotoActionSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('generate') }),
+  z.object({ action: z.literal('toggle'), heroSource: z.enum(['card', 'generated']) }),
+]);
+export type RecipePhotoActionInput = z.infer<typeof recipePhotoActionSchema>;
+
+export interface RecipePhotoActionResultDto {
+  ok: boolean;
+  error?: string;
+  recipe: RecipeDetailDto;
 }
 
 export interface RecipeDetailDto extends RecipeListItemDto {
@@ -128,4 +154,11 @@ export interface RecipeDetailDto extends RecipeListItemDto {
   createdAt: string;
   updatedAt: string;
   photoUrlLarge: string | null;
+  // WP-07 (docs/workpackages/WP-07-photo-pipeline.md §3): card-vs-generated hero toggle
+  // inputs — `source: 'card'` recipes can have both a scanned photo and an on-demand AI
+  // alternative; these three fields let ReceptDetailView render "Nieuwe foto genereren"
+  // vs. "AI-foto als alternatief" + the toggle without a second round trip.
+  heroSource: 'card' | 'generated' | null;
+  hasCardPhoto: boolean;
+  hasGeneratedPhoto: boolean;
 }

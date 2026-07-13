@@ -34,10 +34,21 @@ export interface ModelOption {
   outputPricePerMTok: number;
 }
 
+// Same reasoning as ModelOption, for src/server/integrations/ai/models.ts' AiImageModel
+// (WP-07, docs/workpackages/WP-07-photo-pipeline.md §7) — per-image, not per-token, pricing.
+export interface ImageModelOption {
+  id: string;
+  provider: string;
+  pricePerImageCents: number;
+  notes?: string;
+}
+
 export interface InstellingenFormProps {
   initial: PublicSettingsDto;
   modelsByPurpose: Record<AiPurpose, ModelOption[]>;
   defaultModelIdByPurpose: Partial<Record<AiPurpose, string>>;
+  imageModels: ImageModelOption[];
+  defaultImageModelId: string;
   initialPicnicStatus: PicnicConnectCardProps['initialStatus'];
   initialGoogleStatus: { connected: boolean; calendarId: string | null };
   initialBringStatus: BringConnectCardProps['initialStatus'];
@@ -192,6 +203,8 @@ export function InstellingenForm({
   initial,
   modelsByPurpose,
   defaultModelIdByPurpose,
+  imageModels,
+  defaultImageModelId,
   initialPicnicStatus,
   initialGoogleStatus,
   initialBringStatus,
@@ -379,7 +392,9 @@ export function InstellingenForm({
 
       <Card title="AI per taak" description="Welk model voert elke AI-taak uit (docs/PROMPTS.md §7). WP-05 verbindt dit met echte aanroepen.">
         <div className="grid gap-4 sm:grid-cols-2">
-          {AI_PURPOSES.map((purpose) => {
+          {/* 'image' has its own per-image-priced dropdown in de Fotogeneratie-kaart hieronder
+              (AiModel's $/MTok shape hieronder past niet bij per-foto prijzen). */}
+          {AI_PURPOSES.filter((purpose) => purpose !== 'image').map((purpose) => {
             const options = modelsByPurpose[purpose];
             const value = overrides[purpose] ?? defaultModelIdByPurpose[purpose] ?? '';
             return (
@@ -498,6 +513,20 @@ export function InstellingenForm({
             onChange={(value) => setSecret('imageGeminiApiKey', value)}
           />
         </div>
+
+        <Field label="Foto-model" htmlFor="model-image" hint="Welk model genereert nieuwe gerechtfoto's (docs/PROMPTS.md §5).">
+          <Select
+            id="model-image"
+            value={overrides.image ?? defaultImageModelId}
+            onChange={(event) => setOverrides({ ...overrides, image: event.target.value })}
+          >
+            {imageModels.map((model) => (
+              <option key={model.id} value={model.id}>
+                {model.id} · {model.provider} (~{model.pricePerImageCents.toLocaleString('nl-NL', { maximumFractionDigits: 1 })} ct per foto)
+              </option>
+            ))}
+          </Select>
+        </Field>
       </Card>
 
       {status === 'saved' && <Alert variant="success">Instellingen opgeslagen.</Alert>}

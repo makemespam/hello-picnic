@@ -133,6 +133,22 @@ export const PURPOSE_LABEL: Record<AiPurpose, string> = {
   suggest: 'Suggesties op Vandaag',
 };
 
+// Recipe photo-generation lifecycle (WP-07, docs/workpackages/WP-07-photo-pipeline.md
+// §4): drives the shimmer -> photo swap in the UI (PhotoFrame/RecipeCard) and the
+// resumable backfill batch. Null (no row value) = never queued (manual recipe with no
+// photo, or a recipe predating WP-07) — suggestionScoring-style "no tag yet" semantics,
+// never blocking anything.
+export type RecipePhotoStatus = 'pending' | 'generating' | 'done' | 'failed';
+
+export const RECIPE_PHOTO_STATUS_LABEL: Record<RecipePhotoStatus, string> = {
+  pending: 'Wachtend',
+  generating: 'Foto wordt gemaakt…',
+  done: 'Gereed',
+  failed: 'Mislukt',
+};
+
+export const RECIPE_PHOTO_STATUSES = Object.keys(RECIPE_PHOTO_STATUS_LABEL) as RecipePhotoStatus[];
+
 export interface NavItem {
   href: string;
   label: string;

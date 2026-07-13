@@ -24,6 +24,14 @@ export interface PhotoFrameProps {
    * "blur-up placeholder").
    */
   blurDataUrl?: string | null;
+  /**
+   * WP-07 (docs/workpackages/WP-07-photo-pipeline.md §8): a dish-photo generation is in
+   * flight for this recipe (`photoStatus === 'generating'`) — overlays a pulsing shimmer
+   * on top of whatever's currently showing (existing photo, blur placeholder, or the
+   * 🍽️ fallback) so the swap-to-real-photo on the next poll reads as "almost there"
+   * rather than a jarring pop-in.
+   */
+  shimmer?: boolean;
 }
 
 /**
@@ -32,7 +40,7 @@ export interface PhotoFrameProps {
  * available yet (scan pending / generation failed) — emoji are fallback-only, never the
  * hero of a primary screen.
  */
-export function PhotoFrame({ src, alt, aspect = '4:3', className, blurDataUrl }: PhotoFrameProps) {
+export function PhotoFrame({ src, alt, aspect = '4:3', className, blurDataUrl, shimmer }: PhotoFrameProps) {
   const [loaded, setLoaded] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
 
@@ -83,6 +91,13 @@ export function PhotoFrame({ src, alt, aspect = '4:3', className, blurDataUrl }:
         <div className="flex h-full w-full items-center justify-center text-4xl" role="img" aria-label={alt}>
           🍽️
         </div>
+      )}
+      {shimmer && (
+        <div
+          role="status"
+          aria-label="Foto wordt gemaakt…"
+          className="absolute inset-0 animate-pulse bg-gradient-to-br from-primary-soft/70 via-transparent to-primary-soft/70"
+        />
       )}
     </div>
   );

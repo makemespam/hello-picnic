@@ -4,9 +4,10 @@
 // WP-03 stub (docs/workpackages/WP-03-auth-settings-secrets-ledger.md §5: "stub
 // registry now, completed in WP-05"): only entries with a fully verified $/MTok
 // price pair from docs/PROMPTS.md §7 (web-verified 2026-07-11) are registered.
-// `image` intentionally has ZERO candidates here — WP-07's 5-dish taste test fixes
-// that default. Never guess a price: an unverified number silently corrupts the cost
-// ledger, an empty dropdown does not.
+// `image` intentionally has ZERO candidates in AI_MODELS below (that per-token $/MTok
+// shape never fit image pricing anyway) — WP-07 adds a SEPARATE, per-image-priced
+// `AI_IMAGE_MODELS` registry further down this file instead. Never guess a price: an
+// unverified number silently corrupts the cost ledger, an empty dropdown does not.
 //
 // `scan_card` DEVIATION (WP-08): docs/workpackages/WP-08-card-scanning.md §7 calls for
 // a live model-eval mini-task — run the extraction prompt on real card photos with 2
@@ -104,6 +105,67 @@ export const AI_MODELS: AiModel[] = [
   // Image models (purpose 'image') land with WP-07's taste test — callImage
   // deliberately throws AiConfigError until then.
 ];
+
+// --- Image model registry (WP-07, docs/workpackages/WP-07-photo-pipeline.md) -------
+//
+// SEPARATE, data-only registry from AI_MODELS above: image providers price per
+// generated image (flat), not per input/output token — AiModel's $/MTok shape doesn't
+// fit, so this is its own type/array rather than an awkward token-price fiction.
+// Architect-verified 2026-07-13 (5-dish taste test, docs/PROMPTS.md §5) — do not
+// invent/guess a price here (same rule as AI_MODELS: an unverified number silently
+// corrupts the cost ledger).
+
+export interface AiImageModel {
+  id: string;
+  provider: 'google' | 'openai';
+  /** USD-cent cost per generated image (flat — no per-token pricing for image purposes). */
+  pricePerImageCents: number;
+  /** Date (YYYY-MM-DD) this id + price pair was last checked against live provider docs. */
+  verifiedOn: string;
+  notes?: string;
+}
+
+const IMAGE_VERIFIED_ON = '2026-07-13';
+
+export const AI_IMAGE_MODELS: AiImageModel[] = [
+  {
+    id: 'gemini-3.1-flash-image',
+    provider: 'google',
+    pricePerImageCents: 4.5,
+    verifiedOn: IMAGE_VERIFIED_ON,
+    notes: 'Nano Banana 2 — snel (1-3s), prijs is resolutie-afhankelijk.',
+  },
+  {
+    id: 'gpt-image-2',
+    provider: 'openai',
+    // Medium quality (~5.3 ct/image); low quality (~0.6 ct/image) exists but this
+    // registry only tracks one entry per id — see docs/workpackages/WP-07 notes: fixed
+    // 'medium' quality in callImage rather than a settings field (not trivial enough).
+    pricePerImageCents: 5.3,
+    verifiedOn: IMAGE_VERIFIED_ON,
+    notes: 'Kwaliteit medium (~5,3 ct); low-kwaliteit (~0,6 ct) niet apart instelbaar in v2.',
+  },
+  {
+    id: 'gpt-image-1.5',
+    provider: 'openai',
+    pricePerImageCents: 5,
+    verifiedOn: IMAGE_VERIFIED_ON,
+    notes: 'Kwaliteit medium — optioneel alternatief.',
+  },
+];
+
+// docs/PROMPTS.md §5: "quality first — photos are the app's soul" — Nano Banana 2 won
+// the WP-07 taste test (fast + cheap + quality). Owner-overridable in settings
+// (aiModelOverrides.image), same per-purpose override pattern as DEFAULT_MODEL_BY_PURPOSE.
+export const DEFAULT_IMAGE_MODEL_ID = 'gemini-3.1-flash-image';
+
+export function getImageModelById(id: string): AiImageModel | undefined {
+  return AI_IMAGE_MODELS.find((model) => model.id === id);
+}
+
+export function getDefaultImageModel(): AiImageModel | undefined {
+  return getImageModelById(DEFAULT_IMAGE_MODEL_ID);
+}
 
 // Owner-overridable per purpose in settings (docs/ARCHITECTURE.md §5); this is only
 // the built-in fallback when no override is stored. Purposes with no verified

@@ -3,7 +3,9 @@
 // Recept detail (docs/DESIGN_PRINCIPLES.md §5): full-bleed photo header, meta chips,
 // per-serving ingredient scaling stepper, numbered steps, cook-mode with large text +
 // screen wake lock. Rating/favorite/archive round-trip through PATCH/DELETE
-// /api/recipes/:id (docs/workpackages/WP-04 §4).
+// /api/recipes/:id (docs/workpackages/WP-04 §4). Dish-photo generate/regenerate + the
+// card-vs-AI hero toggle (docs/workpackages/WP-07-photo-pipeline.md §5-6) round-trip
+// through POST /api/recipes/:id/photo.
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -26,14 +28,74 @@ function MetaChip({ children }: { children: ReactNode }) {
 
 const MIN_SERVINGS = 1;
 const MAX_SERVINGS = 12;
+const PHOTO_POLL_INTERVAL_MS = 1500;
 
-export function ReceptDetailView({ recipe: initial }: { recipe: RecipeDetailDto }) {
+function formatPhotoPriceLabel(photoPriceCents: number | null): string {
+  return photoPriceCents !== null ? `~${photoPriceCents.toLocaleString('nl-NL', { maximumFractionDigits: 1 })} cent` : 'een klein bedrag';
+}
+
+export interface ReceptDetailViewProps {
+  recipe: RecipeDetailDto;
+  /** Approximate cost of one AI photo, resolved server-side from the active image model (docs/workpackages/WP-07-photo-pipeline.md §5: "cost-confirm dialog"); null when no image model is registered. */
+  photoPriceCents: number | null;
+}
+
+export function ReceptDetailView({ recipe: initial, photoPriceCents }: ReceptDetailViewProps) {
   const router = useRouter();
   const [recipe, setRecipe] = useState(initial);
   const [servings, setServings] = useState(initial.servingsBase);
   const [cookMode, setCookMode] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+
+  const photoInFlight = recipe.photoStatus === 'pending' || recipe.photoStatus === 'generating';
+
+  // Polls while a generation is in flight (auto-triggered at plan-save, or this recipe's
+  // own manual action) so the shimmer -> photo swap happens without a page reload
+  // (docs/workpackages/WP-07-photo-pipeline.md §8), same pattern as ScannenView's poll.
+  useEffect(() => {
+    if (!photoInFlight) return;
+    const timer = setInterval(async () => {
+      const res = await fetch(`/api/recipes/${recipe.id}`);
+      if (res.ok) setRecipe(await res.json());
+    }, PHOTO_POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [photoInFlight, recipe.id]);
+
+  async function callPhotoAction(body: Record<string, unknown>) {
+    setPhotoBusy(true);
+    setPhotoError(null);
+    try {
+      const res = await fetch(`/api/recipes/${recipe.id}/photo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const responseBody = await res.json().catch(() => null);
+      if (!res.ok) {
+        setPhotoError((responseBody && responseBody.error) || 'Actie is niet gelukt.');
+        return;
+      }
+      setRecipe(responseBody.recipe);
+      if (responseBody.ok === false) setPhotoError(responseBody.error ?? 'Fotogeneratie is mislukt.');
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  function handleGeneratePhoto() {
+    const confirmed = window.confirm(
+      `${recipe.source === 'card' ? 'Een AI-foto als alternatief genereren' : 'Een nieuwe AI-foto genereren'} kost ${formatPhotoPriceLabel(photoPriceCents)}. Doorgaan?`
+    );
+    if (!confirmed) return;
+    void callPhotoAction({ action: 'generate' });
+  }
+
+  function handleToggleHero(target: 'card' | 'generated') {
+    void callPhotoAction({ action: 'toggle', heroSource: target });
+  }
 
   // Screen wake-lock while actively cooking, guarded (docs/workpackages/WP-04 §5:
   // "screen wake-lock via navigator.wakeLock guarded") — many browsers (older Safari)
@@ -89,13 +151,63 @@ export function ReceptDetailView({ recipe: initial }: { recipe: RecipeDetailDto 
 
   return (
     <div className="flex flex-col gap-6 pb-8">
-      <PhotoFrame
-        src={recipe.photoUrlLarge}
-        blurDataUrl={recipe.blurDataUrl}
-        alt={recipe.title}
-        aspect="16:9"
-        className="rounded-lg"
-      />
+      <div className="flex flex-col gap-2">
+        <PhotoFrame
+          src={recipe.photoUrlLarge}
+          blurDataUrl={recipe.blurDataUrl}
+          alt={recipe.title}
+          aspect="16:9"
+          className="rounded-lg"
+          shimmer={photoBusy || photoInFlight}
+        />
+
+        <div className="flex flex-wrap items-center gap-2">
+          {recipe.source === 'card' && recipe.hasCardPhoto && recipe.hasGeneratedPhoto && (
+            <div role="group" aria-label="Foto-bron" className="flex overflow-hidden rounded-full border border-ink/15">
+              <button
+                type="button"
+                disabled={photoBusy}
+                aria-pressed={recipe.heroSource === 'card'}
+                onClick={() => handleToggleHero('card')}
+                className={cn(
+                  'h-9 px-4 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60',
+                  recipe.heroSource === 'card' ? 'bg-primary text-white' : 'bg-surface text-ink hover:bg-ink/5'
+                )}
+              >
+                Kaartfoto
+              </button>
+              <button
+                type="button"
+                disabled={photoBusy}
+                aria-pressed={recipe.heroSource === 'generated'}
+                onClick={() => handleToggleHero('generated')}
+                className={cn(
+                  'h-9 px-4 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60',
+                  recipe.heroSource === 'generated' ? 'bg-primary text-white' : 'bg-surface text-ink hover:bg-ink/5'
+                )}
+              >
+                AI-foto
+              </button>
+            </div>
+          )}
+
+          <button
+            type="button"
+            disabled={photoBusy || photoInFlight}
+            onClick={handleGeneratePhoto}
+            className="inline-flex h-9 items-center justify-center rounded-full border border-ink/15 px-4 text-xs font-semibold text-ink hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {photoBusy || photoInFlight
+              ? 'Foto wordt gemaakt…'
+              : recipe.source === 'card'
+                ? recipe.hasGeneratedPhoto
+                  ? 'Nieuwe AI-foto genereren'
+                  : 'AI-foto als alternatief'
+                : 'Nieuwe foto genereren'}
+          </button>
+        </div>
+        {photoError && <p className="text-xs text-danger">{photoError}</p>}
+      </div>
 
       <div>
         <div className="flex items-start justify-between gap-4">

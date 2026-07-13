@@ -1,5 +1,5 @@
 import { PageHeader } from '@/components/PageHeader';
-import { DEFAULT_MODEL_BY_PURPOSE, getModelsForPurpose, type AiModel } from '@/server/integrations/ai/models';
+import { AI_IMAGE_MODELS, DEFAULT_IMAGE_MODEL_ID, DEFAULT_MODEL_BY_PURPOSE, getModelsForPurpose, type AiModel } from '@/server/integrations/ai/models';
 import { getConnectionStatus as getBringConnectionStatus } from '@/server/services/bringService';
 import { getGoogleStatus } from '@/server/services/calendarService';
 import { getConnectionStatus } from '@/server/services/picnicService';
@@ -40,6 +40,8 @@ export default async function InstellingenPage() {
         initial={settings}
         modelsByPurpose={modelsByPurpose}
         defaultModelIdByPurpose={DEFAULT_MODEL_BY_PURPOSE}
+        imageModels={AI_IMAGE_MODELS}
+        defaultImageModelId={DEFAULT_IMAGE_MODEL_ID}
         initialPicnicStatus={picnicStatus}
         initialGoogleStatus={googleStatus}
         initialBringStatus={bringStatus}

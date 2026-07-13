@@ -12,6 +12,8 @@ export interface RecipeCardData {
   type: RecipeType;
   timeMin: number;
   rating: number;
+  /** WP-07 (docs/workpackages/WP-07-photo-pipeline.md §8): 'generating' shows a shimmer overlay. */
+  photoStatus?: 'pending' | 'generating' | 'done' | 'failed' | null;
 }
 
 export interface RecipeCardProps {
@@ -25,7 +27,13 @@ export interface RecipeCardProps {
 export function RecipeCard({ recipe, href, className }: RecipeCardProps) {
   const body = (
     <div className="flex h-full flex-col overflow-hidden rounded-lg border border-ink/10 bg-surface shadow-sm transition-shadow hover:shadow-md">
-      <PhotoFrame src={recipe.photoUrl} alt={recipe.title} aspect="4:3" blurDataUrl={recipe.blurDataUrl} />
+      <PhotoFrame
+        src={recipe.photoUrl}
+        alt={recipe.title}
+        aspect="4:3"
+        blurDataUrl={recipe.blurDataUrl}
+        shimmer={recipe.photoStatus === 'generating' || recipe.photoStatus === 'pending'}
+      />
       <div className="flex flex-1 flex-col gap-2 p-4">
         <RecipeTypeBadge type={recipe.type} />
         <h3 className="line-clamp-2 text-base font-bold text-ink">{recipe.title}</h3>

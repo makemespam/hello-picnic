@@ -103,6 +103,26 @@ export function WeekplanView({
       .catch(() => undefined);
   }, [plan, todayKey]);
 
+  // docs/workpackages/WP-07-photo-pipeline.md §5(a)/§8: a freshly AI-generated meal's
+  // dish photo queues in the background at plan-save — poll GET /api/plans/latest while
+  // any meal is still shimmering so the day-cards swap to the real photo without a page
+  // reload, same polling pattern as ScannenView/ReceptenLibraryView.
+  const hasPhotoInFlight = (plan?.meals ?? []).some(
+    (meal) => meal.recipe.photoStatus === 'pending' || meal.recipe.photoStatus === 'generating'
+  );
+  useEffect(() => {
+    if (!hasPhotoInFlight) return;
+    const timer = setInterval(() => {
+      fetch('/api/plans/latest')
+        .then((res) => (res.ok ? (res.json() as Promise<PlanDto>) : null))
+        .then((data) => {
+          if (data) setPlan(data);
+        })
+        .catch(() => undefined);
+    }, 1500);
+    return () => clearInterval(timer);
+  }, [hasPhotoInFlight]);
+
   const dayOptions: DayOption[] = Array.from({ length: 7 }, (_, offset) => {
     const dateKey = dateKeyPlusDays(todayKey, offset);
     return { dateKey, label: dayOptionLabel(dateKey), busy: busyDates.has(dateKey) };

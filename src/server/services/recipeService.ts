@@ -8,11 +8,13 @@
 import { and, count, desc, eq, gte, ilike, inArray, isNull, or, type SQL } from 'drizzle-orm';
 import { getDb } from '@/server/db/client';
 import { HOUSEHOLD_ID, recipeIngredients, recipes } from '@/server/db/schema';
+import type { RecipePhotoStatus } from '@/shared/labels';
 import {
   attachImageToRecipe,
   blurDataUrlFromRow,
   deleteImagesForRecipe,
   getImageRowsByIds,
+  getImagesForRecipe,
   imageUrl,
   saveRecipeImage,
   type ImageRow,
@@ -57,15 +59,23 @@ function toListItemDto(row: RecipeRow, imageRow: ImageRow | undefined, blurDataU
     source: row.source,
     photoUrl: imageUrl(imageRow?.id ?? null, '640w'),
     blurDataUrl,
+    photoStatus: row.photoStatus,
   };
 }
 
-function toDetailDto(
+async function toDetailDto(
   row: RecipeRow,
   ingredientRows: IngredientRow[],
   imageRow: ImageRow | undefined,
   blurDataUrl: string | null
-): RecipeDetailDto {
+): Promise<RecipeDetailDto> {
+  // WP-07 (docs/workpackages/WP-07-photo-pipeline.md §3): card-vs-generated hero toggle
+  // inputs — cheap (per-recipe, only on the detail page, not the list) so no extra
+  // batching machinery like getImageRowsByIds needed here.
+  const recipeImages = await getImagesForRecipe(row.id);
+  const cardImage = recipeImages.find((image) => image.kind === 'card');
+  const generatedImage = [...recipeImages].reverse().find((image) => image.kind === 'generated'); // most recent generated photo
+
   return {
     ...toListItemDto(row, imageRow, blurDataUrl),
     photoUrl: imageUrl(imageRow?.id ?? null, '640w'),
@@ -78,6 +88,9 @@ function toDetailDto(
     lastPlannedAt: row.lastPlannedAt ? row.lastPlannedAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    heroSource: imageRow?.kind === 'card' ? 'card' : imageRow?.kind === 'generated' ? 'generated' : null,
+    hasCardPhoto: cardImage !== undefined,
+    hasGeneratedPhoto: generatedImage !== undefined,
   };
 }
 
@@ -91,6 +104,7 @@ export async function listRecipes(query: RecipeQuery): Promise<RecipeListItemDto
   if (query.source) conditions.push(eq(recipes.source, query.source));
   if (query.favorite !== undefined) conditions.push(eq(recipes.favorite, query.favorite));
   if (query.minRating !== undefined) conditions.push(gte(recipes.rating, query.minRating));
+  if (query.photoStatus) conditions.push(eq(recipes.photoStatus, query.photoStatus));
   if (query.text) {
     const like = `%${query.text}%`;
     const textMatch = or(ilike(recipes.title, like), ilike(recipes.description, like));
@@ -139,7 +153,7 @@ export async function getRecipe(id: number): Promise<RecipeDetailDto | null> {
   const imageRow = row.heroImageId !== null ? imagesById.get(row.heroImageId) : undefined;
   const blurDataUrl = await blurDataUrlFromRow(imageRow);
 
-  return toDetailDto(row, ingredientRows, imageRow, blurDataUrl);
+  return await toDetailDto(row, ingredientRows, imageRow, blurDataUrl);
 }
 
 // --- Create / update ----------------------------------------------------------------
@@ -380,6 +394,49 @@ export async function countMissingBestMonths(): Promise<number> {
     .from(recipes)
     .where(and(eq(recipes.householdId, HOUSEHOLD_ID), eq(recipes.status, 'active'), isNull(recipes.bestMonths)));
   return row?.value ?? 0;
+}
+
+// --- Dish photo pipeline (WP-07, docs/workpackages/WP-07-photo-pipeline.md) ---------
+//
+// "Photo-less" is always `heroImageId IS NULL` (never `photoStatus`) — `photoStatus`
+// only tracks in-flight/most-recent-attempt state for the shimmer UI and batch
+// resumability, same "code decides, tag is advisory" split as `bestMonths` above.
+
+export interface PhotoTaggingCandidateRow {
+  id: number;
+  title: string;
+}
+
+/** Active, photo-less recipes, oldest first — feeds imageGenService's resumable backfill batch. */
+export async function listMissingPhotos(limit: number): Promise<PhotoTaggingCandidateRow[]> {
+  const db = getDb();
+  return db
+    .select({ id: recipes.id, title: recipes.title })
+    .from(recipes)
+    .where(and(eq(recipes.householdId, HOUSEHOLD_ID), eq(recipes.status, 'active'), isNull(recipes.heroImageId)))
+    .orderBy(recipes.id)
+    .limit(limit);
+}
+
+/** Exact count of active, photo-less recipes — drives the backfill endpoint's `remaining` and the "Genereer ontbrekende foto's" button's badge. */
+export async function countMissingPhotos(): Promise<number> {
+  const db = getDb();
+  const [row] = await db
+    .select({ value: count() })
+    .from(recipes)
+    .where(and(eq(recipes.householdId, HOUSEHOLD_ID), eq(recipes.status, 'active'), isNull(recipes.heroImageId)));
+  return row?.value ?? 0;
+}
+
+export async function setPhotoStatus(id: number, status: RecipePhotoStatus): Promise<void> {
+  const db = getDb();
+  await db.update(recipes).set({ photoStatus: status, updatedAt: new Date() }).where(eq(recipes.id, id));
+}
+
+/** Sets `heroImageId` directly (no derivative re-processing — the image row already exists). Used by photo generation success and the card/generated toggle. */
+export async function setHeroImage(id: number, imageId: number): Promise<void> {
+  const db = getDb();
+  await db.update(recipes).set({ heroImageId: imageId, updatedAt: new Date() }).where(eq(recipes.id, id));
 }
 
 // --- Legacy-import lookup (scripts/import-legacy.ts idempotency) --------------------
