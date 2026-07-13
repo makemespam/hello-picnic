@@ -68,7 +68,7 @@ test('scannen: uploaden, koppelen, batch-verwerken, controleren, goedkeuren en d
 
   // Upload 4 fixture photos: card-1-front + card-1-back (a real pair), card-2-front and
   // card-3-front (two independent fronts, no backs).
-  const fileInput = page.locator('input[type="file"]');
+  const fileInput = page.locator('#scan-upload-input');
   await fileInput.setInputFiles([
     path.join(FIXTURES_DIR, 'card-1-front.jpg'),
     path.join(FIXTURES_DIR, 'card-1-back.jpg'),
@@ -139,7 +139,7 @@ test('scannen: uploaden, koppelen, batch-verwerken, controleren, goedkeuren en d
   // Re-scan the same title (front-only) -> duplicate warning on approve. A single
   // upload auto-pairs as one front-only scan directly (no odd photo left in the pool).
   await page.goto('/meer/scannen');
-  await page.locator('input[type="file"]').setInputFiles(path.join(FIXTURES_DIR, 'card-1-front.jpg'));
+  await page.locator('#scan-upload-input').setInputFiles(path.join(FIXTURES_DIR, 'card-1-front.jpg'));
   await page.getByRole('button', { name: /Koppeling bevestigen \(1\)/ }).click();
   await page.getByRole('button', { name: 'Alles verwerken' }).click();
   await expect(page.getByRole('heading', { level: 3, name: 'Controleren' })).toBeVisible({ timeout: 15_000 });
