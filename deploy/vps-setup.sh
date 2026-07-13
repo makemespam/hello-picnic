@@ -60,6 +60,7 @@ else
   read -r -p "GEMINI_API_KEY (Enter = overslaan): " K_GEM || true
   read -r -p "OPENAI_API_KEY (Enter = overslaan): " K_OAI || true
   read -r -p "DEEPSEEK_API_KEY (Enter = overslaan): " K_DS || true
+  read -r -p "BRING_API_KEY (Enter = overslaan; alleen nodig als je Bring i.p.v. Picnic gebruikt): " K_BRING || true
   cat > .env <<ENV
 DATABASE_URL=postgres://hellopicnic:${DB_PASS}@postgres:5432/hellopicnic
 APP_SECRET=$(openssl rand -base64 32)
@@ -74,6 +75,10 @@ ANTHROPIC_API_KEY=${K_ANT:-}
 GEMINI_API_KEY=${K_GEM:-}
 OPENAI_API_KEY=${K_OAI:-}
 DEEPSEEK_API_KEY=${K_DS:-}
+BRING_API_KEY=${K_BRING:-}
+# Google Agenda: maak eerst een OAuth-client aan (deploy/GOOGLE_OAUTH.md) en vul dan in:
+#GOOGLE_CLIENT_ID=
+#GOOGLE_CLIENT_SECRET=
 ENV
   chmod 600 .env
   sed -i "s/eten\.example\.nl/${DOMAIN}/" Caddyfile 2>/dev/null || true

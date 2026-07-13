@@ -23,6 +23,8 @@ interface CalendarsResponse {
 const OAUTH_RESULT_MESSAGE: Record<string, string> = {
   error: 'Verbinden met Google is niet gelukt. Probeer het opnieuw.',
   state_mismatch: 'De verbinding kon niet worden geverifieerd. Probeer het opnieuw.',
+  not_configured:
+    'Google Agenda is op de server nog niet ingesteld: maak eenmalig een OAuth-client aan in de Google Cloud Console (stappenplan: deploy/GOOGLE_OAUTH.md in de repository) en zet GOOGLE_CLIENT_ID en GOOGLE_CLIENT_SECRET in deploy/.env.',
 };
 
 export function GoogleConnectCard({ initialConnected, initialCalendarId }: GoogleConnectCardProps) {

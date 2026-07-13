@@ -9,9 +9,20 @@ import {
   generateOauthState,
   GOOGLE_OAUTH_STATE_COOKIE,
   GOOGLE_OAUTH_STATE_MAX_AGE_SECONDS,
+  isGoogleOauthConfigured,
 } from '@/server/integrations/google/oauth';
 
 export async function GET(request: Request) {
+  // Browser navigation, not a fetch call (GoogleConnectCard's "Verbinden" is an <a>) —
+  // so an unconfigured server must redirect back into Settings with a `?google=` result
+  // flag, exactly like the callback route does, never surface a raw 500 (owner
+  // feedback 2026-07-13: "verbinden met de agenda geeft een error 500").
+  if (!isGoogleOauthConfigured()) {
+    const url = new URL('/meer/instellingen', request.url);
+    url.searchParams.set('google', 'not_configured');
+    return NextResponse.redirect(url);
+  }
+
   const state = generateOauthState();
   const authorizeUrl = buildAuthorizeUrl(state);
   const destination = authorizeUrl.startsWith('http') ? authorizeUrl : new URL(authorizeUrl, request.url);

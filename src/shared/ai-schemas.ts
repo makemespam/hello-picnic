@@ -146,6 +146,26 @@ export type ValidateProductResult = z.infer<typeof validateProductSchema>;
 export const cardFieldConfidenceSchema = z.enum(['high', 'medium', 'low']);
 export type CardFieldConfidence = z.infer<typeof cardFieldConfidenceSchema>;
 
+// One per-field confidence entry as the LLM reports it. An ARRAY of these — not a
+// z.record — because a record serializes to `additionalProperties`, which Gemini's
+// responseSchema (OpenAPI subset) cannot express: the field silently degrades to a
+// property-less object and the model's output then fails Zod validation ("No object
+// generated: response did not match schema", owner-hit 2026-07-13, same provider-
+// compat class as pingSchema's boolean-literal note above). scanService converts to
+// the keyed-record shape (`confidenceEntriesToRecord`) before persisting.
+export const cardConfidenceEntrySchema = z.object({
+  /** Dotted/bracket path into the extraction (e.g. "title", "ingredients[2].amount"). */
+  field: z.string().min(1).max(120),
+  level: cardFieldConfidenceSchema,
+});
+
+export type CardConfidenceEntry = z.infer<typeof cardConfidenceEntrySchema>;
+
+/** LLM array shape -> the keyed record persisted in extraction_json (last entry wins on a duplicate field). */
+export function confidenceEntriesToRecord(entries: CardConfidenceEntry[]): Record<string, CardFieldConfidence> {
+  return Object.fromEntries(entries.map((entry) => [entry.field, entry.level]));
+}
+
 export const cardExtractionSchema = z.object({
   title: z.string().min(1).max(200).nullable(),
   description: z.string().max(2000).default(''),
@@ -161,10 +181,9 @@ export const cardExtractionSchema = z.object({
   ingredients: z.array(aiIngredientSchema).default([]),
   // Free-text notes about unreadable/ambiguous fields (docs/PROMPTS.md §3).
   issues: z.array(z.string().min(1).max(500)).default([]),
-  // Per-field confidence, keyed by a dotted/bracket path into this object (e.g.
-  // "title", "timeMin", "ingredients[2].amount") — the review UI (WP-08) visually
-  // flags anything not "high" with a warning border/icon.
-  confidence: z.record(z.string(), cardFieldConfidenceSchema).default({}),
+  // Per-field confidence as a Gemini-safe entry LIST (see cardConfidenceEntrySchema's
+  // note) — the review UI (WP-08) works with the keyed-record form this converts into.
+  confidence: z.array(cardConfidenceEntrySchema).default([]),
 });
 
 export type CardExtraction = z.infer<typeof cardExtractionSchema>;
@@ -178,6 +197,10 @@ export type CardExtraction = z.infer<typeof cardExtractionSchema>;
  */
 export const storedCardExtractionSchema = cardExtractionSchema.extend({
   servingsBase: z.number().int().min(1).max(12),
+  // Stored/review-UI shape stays the keyed record (existing extraction_json rows and
+  // the WP-08 review UI's per-field lookups both use it) — only the LLM-facing schema
+  // above needed the Gemini-safe array form.
+  confidence: z.record(z.string(), cardFieldConfidenceSchema).default({}),
 });
 
 export type StoredCardExtraction = z.infer<typeof storedCardExtractionSchema>;

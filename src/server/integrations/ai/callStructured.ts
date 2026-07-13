@@ -167,11 +167,37 @@ async function callWithBackoff<T>(fn: (signal: AbortSignal) => Promise<T>): Prom
   }
 }
 
+/**
+ * Digs the per-field Zod issues out of a NoObjectGeneratedError's cause chain
+ * (NoObjectGeneratedError -> TypeValidationError -> ZodError). The SDK's own message
+ * is just "response did not match schema" — useless for the owner-visible scan error
+ * AND for the retry-with-feedback prompt, which both need to name the failing fields
+ * (owner-hit 2026-07-13: a scan_card mismatch was undiagnosable from the UI).
+ */
+function schemaIssueDetail(error: unknown): string | undefined {
+  let cause: unknown = NoObjectGeneratedError.isInstance(error) ? error.cause : undefined;
+  for (let depth = 0; depth < 4 && cause && typeof cause === 'object'; depth++) {
+    const issues = (cause as { issues?: unknown }).issues;
+    if (Array.isArray(issues)) {
+      const lines = issues.slice(0, 5).map((issue) => {
+        const { path, message } = issue as { path?: unknown[]; message?: string };
+        const at = Array.isArray(path) && path.length > 0 ? path.join('.') : '(root)';
+        return `${at}: ${message ?? 'ongeldig'}`;
+      });
+      const more = issues.length > 5 ? ` (+${issues.length - 5} meer)` : '';
+      return lines.join('; ') + more;
+    }
+    cause = (cause as { cause?: unknown }).cause;
+  }
+  return undefined;
+}
+
 function classifyFinalError(error: unknown): AiError {
   if (error instanceof AiError) return error;
   if (NoObjectGeneratedError.isInstance(error)) {
+    const detail = schemaIssueDetail(error);
     return new AiValidationError(
-      `AI-antwoord voldeed na een herhaalde poging nog steeds niet aan het verwachte schema: ${error.message}`,
+      `AI-antwoord voldeed na een herhaalde poging nog steeds niet aan het verwachte schema: ${error.message}${detail ? ` — veldfouten: ${detail}` : ''}`,
       { cause: error }
     );
   }
@@ -264,7 +290,8 @@ export async function callStructured<S extends ZodType<unknown>>(input: CallStru
     } catch (error) {
       lastError = error;
       if (NoObjectGeneratedError.isInstance(error) && attempt === 1) {
-        promptText = `${prompt}\n\n---\nJe vorige antwoord voldeed niet aan het verwachte schema.\nFout: ${error.message}\nGeef een volledig nieuw antwoord dat exact aan het schema voldoet.`;
+        const detail = schemaIssueDetail(error);
+        promptText = `${prompt}\n\n---\nJe vorige antwoord voldeed niet aan het verwachte schema.\nFout: ${error.message}${detail ? `\nVeldfouten: ${detail}` : ''}\nGeef een volledig nieuw antwoord dat exact aan het schema voldoet.`;
         continue;
       }
       break;

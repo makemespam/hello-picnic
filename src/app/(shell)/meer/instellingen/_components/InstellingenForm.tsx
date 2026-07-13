@@ -17,6 +17,8 @@ import {
   type HouseholdPrefs,
   type PublicSettingsDto,
   type SecretKey,
+  type SecretSource,
+  type SecretSources,
   type SettingsPutInput,
   type ShoppingProvider,
 } from '@/shared/settings';
@@ -66,8 +68,12 @@ function emptySecretDraft(): SecretDraft {
   return Object.fromEntries(SECRET_KEYS.map((key) => [key, ''])) as SecretDraft;
 }
 
-function configuredFlagsFrom(dto: PublicSettingsDto): Record<SecretKey, boolean> {
-  return Object.fromEntries(SECRET_KEYS.map((key) => [key, dto[`${key}Configured`]])) as Record<SecretKey, boolean>;
+// Older payloads (before secretSources existed) still carry the `<key>Configured`
+// booleans — treat those as 'app' so the form never regresses to "Niet ingesteld"
+// for a stored key.
+function secretSourcesFrom(dto: PublicSettingsDto): SecretSources {
+  if (dto.secretSources) return dto.secretSources;
+  return Object.fromEntries(SECRET_KEYS.filter((key) => dto[`${key}Configured`]).map((key) => [key, 'app'])) as SecretSources;
 }
 
 function toggle<T>(list: T[], value: T): T[] {
@@ -150,16 +156,18 @@ function SecretField({
   id,
   label,
   value,
-  configured,
+  source,
   onChange,
 }: {
   id: string;
   label: string;
   value: string | null;
-  configured: boolean;
+  /** 'app' = opgeslagen via dit formulier (wisbaar), 'env' = server-.env (niet wisbaar hier), null = niet ingesteld. */
+  source: SecretSource | null;
   onChange: (value: string | null) => void;
 }) {
   const cleared = value === null;
+  const configured = source !== null;
   return (
     <Field label={label} htmlFor={id}>
       <div className="flex items-center gap-2">
@@ -173,7 +181,9 @@ function SecretField({
           onChange={(event) => onChange(event.target.value)}
           className="flex-1"
         />
-        {configured && !cleared && (
+        {/* Een env-sleutel valt hier niet te wissen — die staat in deploy/.env op de
+            server; het formulier kan er hooguit een app-sleutel overheen zetten. */}
+        {source === 'app' && !cleared && (
           <button
             type="button"
             onClick={() => onChange(null)}
@@ -193,7 +203,13 @@ function SecretField({
         )}
       </div>
       <p className={cn('mt-1 text-xs', cleared ? 'text-danger' : configured ? 'text-success' : 'text-ink-muted')}>
-        {cleared ? 'Wordt gewist bij opslaan' : configured ? '✓ ingesteld' : 'Niet ingesteld'}
+        {cleared
+          ? 'Wordt gewist bij opslaan'
+          : source === 'app'
+            ? '✓ ingesteld'
+            : source === 'env'
+              ? '✓ ingesteld via de server (deploy/.env)'
+              : 'Niet ingesteld'}
       </p>
     </Field>
   );
@@ -212,7 +228,7 @@ export function InstellingenForm({
   const [prefs, setPrefs] = useState<HouseholdPrefs>(initial.householdPrefs);
   const [overrides, setOverrides] = useState<AiModelOverrides>(initial.aiModelOverrides);
   const [secrets, setSecrets] = useState<SecretDraft>(emptySecretDraft());
-  const [configured, setConfigured] = useState(() => configuredFlagsFrom(initial));
+  const [sources, setSources] = useState<SecretSources>(() => secretSourcesFrom(initial));
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   function setSecret(key: SecretKey, value: string | null) {
@@ -243,7 +259,7 @@ export function InstellingenForm({
       setPrefs(data.householdPrefs);
       setOverrides(data.aiModelOverrides);
       setSecrets(emptySecretDraft());
-      setConfigured(configuredFlagsFrom(data));
+      setSources(secretSourcesFrom(data));
       setStatus('saved');
     } catch {
       setStatus('error');
@@ -458,7 +474,7 @@ export function InstellingenForm({
               id="anthropicApiKey"
               label="Anthropic API-sleutel"
               value={secrets.anthropicApiKey}
-              configured={configured.anthropicApiKey}
+              source={sources.anthropicApiKey ?? null}
               onChange={(value) => setSecret('anthropicApiKey', value)}
             />
             <TestConnectionButton provider="anthropic" />
@@ -468,7 +484,7 @@ export function InstellingenForm({
               id="openaiApiKey"
               label="OpenAI API-sleutel"
               value={secrets.openaiApiKey}
-              configured={configured.openaiApiKey}
+              source={sources.openaiApiKey ?? null}
               onChange={(value) => setSecret('openaiApiKey', value)}
             />
             <TestConnectionButton provider="openai" />
@@ -478,7 +494,7 @@ export function InstellingenForm({
               id="geminiApiKey"
               label="Google Gemini API-sleutel"
               value={secrets.geminiApiKey}
-              configured={configured.geminiApiKey}
+              source={sources.geminiApiKey ?? null}
               onChange={(value) => setSecret('geminiApiKey', value)}
             />
             <TestConnectionButton provider="google" />
@@ -488,7 +504,7 @@ export function InstellingenForm({
               id="deepseekApiKey"
               label="DeepSeek API-sleutel"
               value={secrets.deepseekApiKey}
-              configured={configured.deepseekApiKey}
+              source={sources.deepseekApiKey ?? null}
               onChange={(value) => setSecret('deepseekApiKey', value)}
             />
             <TestConnectionButton provider="deepseek" />
@@ -502,14 +518,14 @@ export function InstellingenForm({
             id="imageOpenaiApiKey"
             label="OpenAI API-sleutel (foto's)"
             value={secrets.imageOpenaiApiKey}
-            configured={configured.imageOpenaiApiKey}
+            source={sources.imageOpenaiApiKey ?? null}
             onChange={(value) => setSecret('imageOpenaiApiKey', value)}
           />
           <SecretField
             id="imageGeminiApiKey"
             label="Google Gemini API-sleutel (foto's)"
             value={secrets.imageGeminiApiKey}
-            configured={configured.imageGeminiApiKey}
+            source={sources.imageGeminiApiKey ?? null}
             onChange={(value) => setSecret('imageGeminiApiKey', value)}
           />
         </div>

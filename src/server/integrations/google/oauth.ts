@@ -45,6 +45,18 @@ function redirectUri(): string {
 }
 
 /**
+ * Whether the server has a Google OAuth client at all (deploy/GOOGLE_OAUTH.md — the
+ * one integration step the owner must do in the GCP console; vps-setup.sh can't do it).
+ * The start route checks this FIRST so an unconfigured server redirects back into
+ * Settings with a helpful message instead of 500'ing (owner feedback 2026-07-13).
+ * FAKE_GOOGLE needs no client — the consent screen is a same-origin dev page.
+ */
+export function isGoogleOauthConfigured(): boolean {
+  if (isFakeGoogle()) return true;
+  return Boolean(process.env.GOOGLE_CLIENT_ID) && Boolean(process.env.GOOGLE_CLIENT_SECRET);
+}
+
+/**
  * The URL to send the user to start the consent flow. In FAKE_GOOGLE=1 mode this is a
  * same-origin dev page (src/app/dev/google-consent) instead of accounts.google.com —
  * there is no real OAuth client in CI/sandbox, and the e2e suite needs a full redirect

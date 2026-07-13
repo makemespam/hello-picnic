@@ -16,14 +16,14 @@ import { callStructured } from '@/server/integrations/ai/callStructured';
 import type { CallStructuredImageInput } from '@/server/integrations/ai/callStructured';
 import { AiError } from '@/server/integrations/ai/errors';
 import { buildScanCardPrompt } from '@/server/integrations/ai/prompts/scanCard';
-import { cardExtractionSchema, storedCardExtractionSchema, type StoredCardExtraction } from '@/shared/ai-schemas';
+import { cardExtractionSchema, confidenceEntriesToRecord, storedCardExtractionSchema, type StoredCardExtraction } from '@/shared/ai-schemas';
 import type { CardScanStatus } from '@/shared/labels';
 import { scaleIngredients } from '@/shared/recipeScaling';
 import type { RecipeCreateInput } from '@/shared/recipes';
 import type { CardScanDto, PairScansInput, ScanApproveInput, ScanApproveResultDto, ScanBoardDto, ScanImageDto } from '@/shared/scans';
 import { titleSimilarity } from '@/shared/titleSimilarity';
 import { attachCardScanPhoto, createRecipe, listActiveTitles } from './recipeService';
-import { getImageRowsByIds, imageUrl, readImageDerivative, saveScanPhoto, type ImageRow } from './imageService';
+import { deleteImage, getImageRowsByIds, imageUrl, readImageDerivative, saveScanPhoto, type ImageRow } from './imageService';
 import { computeBestMonthsForRecipe } from './seasonService';
 import { getHouseholdPrefs } from './settingsService';
 
@@ -123,6 +123,33 @@ export async function listScanBoard(): Promise<ScanBoardDto> {
   const scans = await Promise.all(scanRows.map(toScanDto));
 
   return { unpairedImages, scans };
+}
+
+/**
+ * Deletes one still-unpaired card photo (derivatives + `images` row) — the pairing
+ * board's escape hatch for blurry shots and per-ongeluk uploads (owner feedback
+ * 2026-07-13). Refuses anything that is no longer "just an uploaded photo": images
+ * attached to a recipe or referenced by any scan row (even a rejected one — its photos
+ * are that scan's audit trail) are protected.
+ */
+export async function deleteUnpairedImage(imageId: number): Promise<void> {
+  const db = getDb();
+  const imagesById = await getImageRowsByIds([imageId]);
+  const image = imagesById.get(imageId);
+  if (!image || image.kind !== 'card' || image.recipeId !== null) {
+    throw new ScanServiceError('Deze foto bestaat niet (meer) of hoort al bij een recept.');
+  }
+
+  const usedRows = await db
+    .select({ frontImageId: cardScans.frontImageId, backImageId: cardScans.backImageId })
+    .from(cardScans)
+    .where(eq(cardScans.householdId, HOUSEHOLD_ID));
+  const isUsed = usedRows.some((row) => row.frontImageId === imageId || row.backImageId === imageId);
+  if (isUsed) {
+    throw new ScanServiceError('Deze foto hoort al bij een scan en kan niet meer los verwijderd worden.');
+  }
+
+  await deleteImage(imageId);
 }
 
 // --- Pairing -------------------------------------------------------------------------
@@ -230,6 +257,9 @@ export async function extractScan(id: number): Promise<CardScanDto> {
       ...result,
       ingredients: scaleIngredients(result.ingredients, result.cardServings, servingsBase),
       servingsBase,
+      // LLM answers confidence as a Gemini-safe entry array (ai-schemas.ts); the stored
+      // shape (and the review UI reading it) keeps the keyed record.
+      confidence: confidenceEntriesToRecord(result.confidence),
     };
     await db
       .update(cardScans)

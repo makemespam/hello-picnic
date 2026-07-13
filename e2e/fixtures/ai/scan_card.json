@@ -21,12 +21,12 @@
     { "display": "Zout", "amount": 1, "unit": "tl", "category": "overig", "pantry": true }
   ],
   "issues": ["Bereidingstijd was gedeeltelijk onleesbaar door een koffievlek op de kaart; 40 minuten is een schatting."],
-  "confidence": {
-    "title": "high",
-    "type": "high",
-    "difficulty": "high",
-    "cardServings": "high",
-    "timeMin": "low",
-    "ingredients[3].amount": "medium"
-  }
+  "confidence": [
+    { "field": "title", "level": "high" },
+    { "field": "type", "level": "high" },
+    { "field": "difficulty", "level": "high" },
+    { "field": "cardServings", "level": "high" },
+    { "field": "timeMin", "level": "low" },
+    { "field": "ingredients[3].amount", "level": "medium" }
+  ]
 }

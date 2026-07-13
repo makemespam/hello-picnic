@@ -22,7 +22,7 @@ const SYSTEM = `Je leest een HelloFresh-receptkaart (Nederlands). Extraheer het 
 - Stappen: alle genummerde stappen volledig, in de volgorde van de kaart.
 - Schat "type" (vegan/vegetarisch/vis/kip/rund/varken), "time" (staat meestal op de kaart) en "difficulty".
 - "cardServings": voor hoeveel personen de kaarthoeveelheden gelden.
-- Vul "confidence" per veld (high/medium/low) zodat de reviewer weet waar te kijken.`;
+- Vul "confidence" als lijst van objecten {"field": "<veldnaam, bijv. title of ingredients[2].amount>", "level": "high|medium|low"} zodat de reviewer weet waar te kijken.`;
 
 export interface BuildScanCardPromptInput {
   /** True when only a front photo was captured (no back/ingredient panel) — tells the

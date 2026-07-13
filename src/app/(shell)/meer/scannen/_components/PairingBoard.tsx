@@ -36,6 +36,7 @@ export function PairingBoard({ unpairedImages, onPaired }: PairingBoardProps) {
   const [pool, setPool] = useState<ScanImageDto[]>([]);
   const [selectedPoolId, setSelectedPoolId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [knownIds, setKnownIds] = useState<Set<number>>(() => new Set(unpairedImages.map((i) => i.id)));
 
   // New uploads that arrive while the pairing screen is open (e.g. a second batch
@@ -87,6 +88,40 @@ export function PairingBoard({ unpairedImages, onPaired }: PairingBoardProps) {
     setPairs((current) => current.filter((p) => p.key !== key));
   }
 
+  // Owner feedback 2026-07-13: mislukte of per-ongeluk geüploade foto's moeten weg
+  // kunnen vóór het koppelen. Deletes go photo-for-photo through
+  // DELETE /api/scans/images/:id (unpaired-only, server-guarded); local draft state is
+  // pruned per successfully deleted id so a half-failed batch never hides photos that
+  // still exist server-side.
+  async function deleteImages(images: ScanImageDto[]): Promise<void> {
+    setDeleteError(null);
+    const deletedIds = new Set<number>();
+    for (const image of images) {
+      const res = await fetch(`/api/scans/images/${image.id}`, { method: 'DELETE' });
+      if (res.ok) deletedIds.add(image.id);
+      else setDeleteError('Verwijderen is (deels) niet gelukt. Ververs de pagina en probeer het opnieuw.');
+    }
+    if (deletedIds.size === 0) return;
+    setPairs((current) => current.filter((pair) => !deletedIds.has(pair.front.id) && !(pair.back && deletedIds.has(pair.back.id))));
+    setPool((current) => current.filter((image) => !deletedIds.has(image.id)));
+    setSelectedPoolId((current) => (current !== null && deletedIds.has(current) ? null : current));
+    onPaired();
+  }
+
+  async function deletePair(key: string) {
+    const pair = pairs.find((p) => p.key === key);
+    if (!pair) return;
+    if (!window.confirm('Deze foto’s verwijderen? Dit kan niet ongedaan worden gemaakt.')) return;
+    await deleteImages([pair.front, ...(pair.back ? [pair.back] : [])]);
+  }
+
+  async function deleteSelectedPoolPhoto() {
+    const image = pool.find((p) => p.id === selectedPoolId);
+    if (!image) return;
+    if (!window.confirm('Deze foto verwijderen? Dit kan niet ongedaan worden gemaakt.')) return;
+    await deleteImages([image]);
+  }
+
   async function confirm() {
     setSaving(true);
     try {
@@ -109,6 +144,8 @@ export function PairingBoard({ unpairedImages, onPaired }: PairingBoardProps) {
         <h3 className="text-base font-bold text-ink">Kaarten koppelen</h3>
         <p className="text-sm text-ink-muted">Voor- en achterkant zijn automatisch gekoppeld op uploadvolgorde. Tik om te wisselen.</p>
       </div>
+
+      {deleteError && <p className="text-sm text-danger">{deleteError}</p>}
 
       <div className="flex flex-col gap-3">
         {pairs.map((pair) => (
@@ -133,6 +170,14 @@ export function PairingBoard({ unpairedImages, onPaired }: PairingBoardProps) {
               <button type="button" onClick={() => unpair(pair.key)} className="text-xs font-semibold text-danger underline underline-offset-2">
                 Ontkoppelen
               </button>
+              <button
+                type="button"
+                onClick={() => void deletePair(pair.key)}
+                aria-label="Foto's verwijderen"
+                className="text-xs font-semibold text-danger underline underline-offset-2"
+              >
+                🗑 Verwijderen
+              </button>
             </div>
           </div>
         ))}
@@ -154,9 +199,18 @@ export function PairingBoard({ unpairedImages, onPaired }: PairingBoardProps) {
             ))}
           </div>
           {selectedPoolId !== null && (
-            <button type="button" onClick={addSelectedAsFrontOnly} className="mt-2 text-xs font-semibold text-primary underline underline-offset-2">
-              Los toevoegen als voorkant-only
-            </button>
+            <div className="mt-2 flex gap-4">
+              <button type="button" onClick={addSelectedAsFrontOnly} className="text-xs font-semibold text-primary underline underline-offset-2">
+                Los toevoegen als voorkant-only
+              </button>
+              <button
+                type="button"
+                onClick={() => void deleteSelectedPoolPhoto()}
+                className="text-xs font-semibold text-danger underline underline-offset-2"
+              >
+                🗑 Foto verwijderen
+              </button>
+            </div>
           )}
         </div>
       )}

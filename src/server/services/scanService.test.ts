@@ -19,6 +19,7 @@ import { putHouseholdPrefs } from './settingsService';
 import {
   approveScan,
   createScans,
+  deleteUnpairedImage,
   extractAllUploaded,
   extractScan,
   getScan,
@@ -118,6 +119,32 @@ describe('pairScans', () => {
 
   it('rejects an unknown image id', async () => {
     await expect(pairScans([{ frontImageId: 999_999 }])).rejects.toBeInstanceOf(ScanServiceError);
+  });
+});
+
+describe('deleteUnpairedImage', () => {
+  it('deletes a still-unpaired photo (row + board entry)', async () => {
+    const [photo] = await createScans([await makeTestJpeg()]);
+
+    await deleteUnpairedImage(photo!.id);
+
+    const board = await listScanBoard();
+    expect(board.unpairedImages).toHaveLength(0);
+    const db = getDb();
+    const rows = await db.select().from(images).where(eq(images.id, photo!.id));
+    expect(rows).toHaveLength(0);
+  });
+
+  it('refuses a photo that already belongs to a scan (front or back, any status)', async () => {
+    const [front, back] = await createScans([await makeTestJpeg(), await makeTestJpeg()]);
+    await pairScans([{ frontImageId: front!.id, backImageId: back!.id }]);
+
+    await expect(deleteUnpairedImage(front!.id)).rejects.toBeInstanceOf(ScanServiceError);
+    await expect(deleteUnpairedImage(back!.id)).rejects.toBeInstanceOf(ScanServiceError);
+  });
+
+  it('refuses an unknown id', async () => {
+    await expect(deleteUnpairedImage(999_999)).rejects.toBeInstanceOf(ScanServiceError);
   });
 });
 

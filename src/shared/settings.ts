@@ -128,6 +128,16 @@ export type SettingsPutInput = z.infer<typeof settingsPutSchema>;
 // contract; kept here next to the Zod schemas it mirrors.
 export type SecretConfiguredFlags = { [K in SecretKey as `${K}Configured`]: boolean };
 
+/**
+ * Where a usable secret value comes from: 'app' = stored (encrypted) via the settings
+ * form, 'env' = the server's .env fallback (deploy/.env on the VPS — providers.ts /
+ * callImage.ts resolve keys settings-first, env second). Absent = not configured
+ * anywhere. Only ever the SOURCE label — never the value itself (docs/ARCHITECTURE.md
+ * §9.2 stands: secrets never reach the client).
+ */
+export type SecretSource = 'app' | 'env';
+export type SecretSources = Partial<Record<SecretKey, SecretSource>>;
+
 export interface PublicSettingsDto extends SecretConfiguredFlags {
   householdPrefs: HouseholdPrefs;
   aiModelOverrides: AiModelOverrides;
@@ -135,6 +145,8 @@ export interface PublicSettingsDto extends SecretConfiguredFlags {
   bringEmail: string;
   /** WP-12: id of the connected Google calendar events publish to; '' when none is chosen yet. */
   googleCalendarId: string;
+  /** Per secret: where the effective value comes from ('app' wins over 'env'); absent = niet ingesteld. */
+  secretSources: SecretSources;
 }
 
 export const MEAL_STYLE_OPTIONS: MealStyle[] = MEAL_STYLES;

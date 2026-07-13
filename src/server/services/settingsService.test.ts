@@ -92,6 +92,47 @@ describe('settingsService — getPublicSettings', () => {
     }
     expect(JSON.stringify(publicSettings)).not.toContain('sk-super-secret-value');
   });
+
+  // Owner feedback 2026-07-13: keys living only in deploy/.env showed as "Niet
+  // ingesteld" while every AI call used them fine via the env fallback.
+  it("secretSources reports 'env' for a key only present in process.env, and 'app' wins over 'env'", async () => {
+    const original = process.env.DEEPSEEK_API_KEY;
+    process.env.DEEPSEEK_API_KEY = 'sk-env-only-value';
+    try {
+      const envOnly = await getPublicSettings();
+      expect(envOnly.secretSources.deepseekApiKey).toBe('env');
+      // The Configured boolean keeps its stored-in-app semantics (Wissen button).
+      expect(envOnly.deepseekApiKeyConfigured).toBe(false);
+      expect(JSON.stringify(envOnly)).not.toContain('sk-env-only-value');
+
+      await putSecret('deepseekApiKey', 'sk-app-value');
+      const both = await getPublicSettings();
+      expect(both.secretSources.deepseekApiKey).toBe('app');
+    } finally {
+      if (original === undefined) delete process.env.DEEPSEEK_API_KEY;
+      else process.env.DEEPSEEK_API_KEY = original;
+    }
+  });
+
+  it('secretSources omits keys configured nowhere, and picnic/bring passwords never report env', async () => {
+    const publicSettings = await getPublicSettings();
+    expect(publicSettings.secretSources.anthropicApiKey).toBeUndefined();
+    expect(publicSettings.secretSources.picnicPassword).toBeUndefined();
+    expect(publicSettings.secretSources.bringPassword).toBeUndefined();
+  });
+
+  it("image keys fall back to the shared text-AI env vars (callImage.ts's actual resolution order)", async () => {
+    const original = process.env.GEMINI_API_KEY;
+    process.env.GEMINI_API_KEY = 'sk-env-gemini';
+    try {
+      const publicSettings = await getPublicSettings();
+      expect(publicSettings.secretSources.geminiApiKey).toBe('env');
+      expect(publicSettings.secretSources.imageGeminiApiKey).toBe('env');
+    } finally {
+      if (original === undefined) delete process.env.GEMINI_API_KEY;
+      else process.env.GEMINI_API_KEY = original;
+    }
+  });
 });
 
 describe('settingsService — putSettings (tri-state secret semantics)', () => {

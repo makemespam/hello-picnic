@@ -75,7 +75,12 @@ export async function bringRequest(path: string, init: BringRequestInit = {}): P
   }
 
   if (!process.env.BRING_API_KEY) {
-    throw new BringUnknown('BRING_API_KEY is niet geconfigureerd (zie .env.example).');
+    // Owner-facing (this bubbles verbatim into the Bring-verbinden card): say WHERE the
+    // key goes, not just that it's missing. The value itself stays strictly in env —
+    // never hardcode it (envKeyGuard.test.ts).
+    throw new BringUnknown(
+      'Bring is op de server nog niet geconfigureerd: zet BRING_API_KEY in deploy/.env (zie .env.example) en herstart de app met "docker compose up -d".'
+    );
   }
 
   if (init.formBody) {

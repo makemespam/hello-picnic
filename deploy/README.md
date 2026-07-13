@@ -21,6 +21,8 @@
    ```
 3. **App-configuratie**: kopieer `.env.example` → `deploy/.env`, vul `DATABASE_URL`
    (host `postgres` op het `shared_infra`-netwerk), `APP_SECRET`, `AUTH_SECRET`, LLM-keys.
+   Optioneel: `BRING_API_KEY` (alleen bij Bring i.p.v. Picnic) en
+   `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` (Google Agenda — zie `deploy/GOOGLE_OAUTH.md`).
 4. **Hostnaam**: pas `deploy/Caddyfile` aan (DNS A-record naar de VPS).
 5. **Start**: `cd deploy && docker compose up -d`
 6. **Migraties + gebruikers** (vanaf WP-03):
@@ -31,8 +33,22 @@
 
 ## Updaten
 
+**Migraties horen bij elke update** — een nieuwe app-versie kan kolommen verwachten
+die de database nog niet heeft (dan crashen pagina's met "er ging iets mis"). De
+veiligste route is gewoon het setup-script opnieuw draaien (idempotent, doet ook de
+migraties):
+
 ```bash
-cd deploy && docker compose pull && docker compose up -d
+cd ~/hello-picnic && git pull
+bash deploy/vps-setup.sh --build     # of zonder --build als je het GHCR-image pullt
+```
+
+Handmatig kan ook, maar dan altijd mét de migratie-stap:
+
+```bash
+cd deploy
+docker compose pull && docker compose up -d          # of: docker build -t ghcr.io/makemespam/hello-picnic:latest .. && docker compose up -d
+docker compose --profile tools run --rm tools npm run db:migrate
 ```
 
 ## Backups (nachtelijke cron)

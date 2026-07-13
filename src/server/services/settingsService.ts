@@ -24,6 +24,7 @@ import {
   type PublicSettingsDto,
   type SecretConfiguredFlags,
   type SecretKey,
+  type SecretSources,
   type SettingsPutInput,
   type SuggestionsCache,
 } from '@/shared/settings';
@@ -174,6 +175,27 @@ export async function isSecretConfigured(key: SecretKey): Promise<boolean> {
   return !!row && typeof row.valueJson === 'string' && row.valueJson.length > 0;
 }
 
+// Which .env variable each secret falls back to when nothing is stored via the app —
+// mirrors the ACTUAL resolution order in ai/providers.ts (resolveApiKey) and
+// ai/callImage.ts (resolveImageApiKey): settings first, env second. The image keys
+// share the text-AI env vars on purpose (callImage.ts ENV_VAR). picnicPassword/
+// bringPassword have no env fallback — connecting happens in-app only.
+const ENV_FALLBACK_BY_SECRET: Partial<Record<SecretKey, string>> = {
+  anthropicApiKey: 'ANTHROPIC_API_KEY',
+  openaiApiKey: 'OPENAI_API_KEY',
+  geminiApiKey: 'GEMINI_API_KEY',
+  deepseekApiKey: 'DEEPSEEK_API_KEY',
+  imageOpenaiApiKey: 'OPENAI_API_KEY',
+  imageGeminiApiKey: 'GEMINI_API_KEY',
+};
+
+function isSecretConfiguredViaEnv(key: SecretKey): boolean {
+  const envVar = ENV_FALLBACK_BY_SECRET[key];
+  if (!envVar) return false;
+  const value = process.env[envVar];
+  return typeof value === 'string' && value.length > 0;
+}
+
 export async function putSecret(key: SecretKey, value: string): Promise<void> {
   await writeRaw(key, encryptSecret(value), true);
 }
@@ -209,7 +231,17 @@ export async function getPublicSettings(): Promise<PublicSettingsDto> {
     SECRET_KEYS.map((key, index) => [`${key}Configured`, configuredFlags[index]])
   ) as SecretConfiguredFlags;
 
-  return { householdPrefs, aiModelOverrides, picnicEmail, bringEmail, googleCalendarId, ...secretFlags };
+  // Owner feedback 2026-07-13: keys set in deploy/.env at install time showed as "Niet
+  // ingesteld" (the flags above only look at the DB) even though every AI call happily
+  // used them via the env fallback. `secretSources` tells the settings UI the truth:
+  // 'app' (stored via the form, clearable) vs 'env' (server config, not clearable here).
+  const secretSources: SecretSources = {};
+  SECRET_KEYS.forEach((key, index) => {
+    if (configuredFlags[index]) secretSources[key] = 'app';
+    else if (isSecretConfiguredViaEnv(key)) secretSources[key] = 'env';
+  });
+
+  return { householdPrefs, aiModelOverrides, picnicEmail, bringEmail, googleCalendarId, secretSources, ...secretFlags };
 }
 
 /**
