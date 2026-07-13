@@ -29,7 +29,11 @@ import {
 } from './labels';
 
 export const pingSchema = z.object({
-  pong: z.literal(true),
+  // z.boolean(), NOT z.literal(true): a boolean literal serializes to `enum: [true]`,
+  // which Gemini's responseSchema (OpenAPI subset) rejects — enum values must be
+  // strings there ("Invalid value at ...enum[0] (TYPE_STRING), true"). Plain
+  // TYPE_BOOLEAN is supported by all four providers.
+  pong: z.boolean(),
   message: z.string().min(1),
 });
 
